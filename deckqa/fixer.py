@@ -1,15 +1,11 @@
-"""Applies the machine-readable fixes attached to issues. Operates on live python-pptx shapes."""
-import copy
+"""Applies the machine-readable fixes attached to issues. Works on live python-pptx shapes,
+converting absolute slide coordinates back into each shape's own (possibly group-local) space."""
 from pptx.util import Pt, Emu
 
 from .config import Config
 from .textfit import measure
 
 EMU = 12700.0
-
-
-def _by_id(slide):
-    return {sh.shape_id: sh for sh in slide.shapes}
 
 
 def _pin(shape):
@@ -25,10 +21,27 @@ def _set_size(shape, size):
             r.font.size = Pt(size)
 
 
-def _el(deck, slide_no, sid):
-    for e in deck.slides[slide_no - 1].els:
-        if e.id == sid:
-            return e
+def set_abs(el, left=None, top=None, width=None, height=None):
+    """Set absolute geometry (points) on el.shape, undoing any group transform."""
+    sx, ox, sy, oy = el.xf
+    sh = el.shape
+    _pin(sh)
+    if left is not None:
+        sh.left = Emu(int(round((left * EMU - ox) / sx)))
+    if top is not None:
+        sh.top = Emu(int(round((top * EMU - oy) / sy)))
+    if width is not None:
+        sh.width = Emu(int(round(width * EMU / sx)))
+    if height is not None:
+        sh.height = Emu(int(round(height * EMU / sy)))
+    if left is not None:
+        el.left = left
+    if top is not None:
+        el.top = top
+    if width is not None:
+        el.width = width
+    if height is not None:
+        el.height = height
 
 
 def apply(deck, issues, cfg: Config):
@@ -36,114 +49,115 @@ def apply(deck, issues, cfg: Config):
     n = 0
     moved = set()  # (slide, shape_id, axis) already positioned
     order = {"remove": 0, "font": 1, "title_size": 1, "min_font": 2, "fit": 3, "title_fit": 3,
-             "title_pos": 4, "align": 5, "distribute": 6, "straighten": 7, "add_number": 8}
+             "title_pos": 4, "align": 5, "place": 5, "clamp": 3, "distribute": 6, "straighten": 7, "add_number": 8}
     todo = sorted((i for i in issues if i.fixable and i.fix), key=lambda i: order.get(i.fix["op"], 9))
     for iss in todo:
         sl = deck.slides[iss.slide - 1]
-        shapes = _by_id(sl.slide)
+        els = {e.id: e for e in sl.all}
         f = iss.fix
         op = f["op"]
         ok = False
         if op == "remove":
-            sh = shapes.get(f["id"])
-            if sh is not None:
-                sh._element.getparent().remove(sh._element)
+            e = els.get(f["id"])
+            if e is not None:
+                e.shape._element.getparent().remove(e.shape._element)
                 ok = True
         elif op == "font":
-            sh = shapes.get(f["id"])
-            if sh is not None:
-                for p in sh.text_frame.paragraphs:
+            e = els.get(f["id"])
+            if e is not None:
+                for p in e.shape.text_frame.paragraphs:
                     for r in p.runs:
                         if r.font.name:
                             r.font.name = f["font"]
                 ok = True
         elif op == "title_size":
-            sh = shapes.get(f["id"])
-            if sh is not None:
-                _set_size(sh, f["size"])
+            e = els.get(f["id"])
+            if e is not None:
+                _set_size(e.shape, f["size"])
                 ok = True
         elif op == "min_font":
-            sh = shapes.get(f["id"])
-            if sh is not None:
-                for p in sh.text_frame.paragraphs:
+            e = els.get(f["id"])
+            if e is not None:
+                for p in e.shape.text_frame.paragraphs:
                     for r in p.runs:
                         if r.font.size and r.font.size.pt < cfg.min_font:
                             r.font.size = Pt(cfg.min_font)
                 ok = True
         elif op in ("fit", "title_fit"):
-            sh = shapes.get(f["id"])
-            e = _el(deck, iss.slide, f["id"])
-            if sh is not None and e is not None:
+            e = els.get(f["id"])
+            if e is not None:
                 floor = cfg.title_min_font if op == "title_fit" else cfg.min_font
                 size = e.size or cfg.default_font
-                limit = cfg.title_max_lines
 
                 def good(sz):
                     m = measure(e, cfg, sz)
                     if op == "title_fit":
-                        return m["lines"] <= limit
+                        return m["lines"] <= cfg.title_max_lines
                     return m["height"] <= e.height + 1 and not m["split"]
                 while size > floor and not good(size):
                     size -= 1
                 if good(size):
-                    _set_size(sh, size)
+                    _set_size(e.shape, size)
                     ok = True
                 elif op == "fit":  # last resort: grow the box downward if there is room
-                    m = measure(e, cfg, max(size, floor))
-                    new_h = m["height"]
+                    new_h = measure(e, cfg, max(size, floor))["height"]
                     if e.top + new_h <= deck.height:
-                        _pin(sh)
-                        _set_size(sh, max(size, floor))
-                        sh.height = Emu(int(new_h * EMU))
+                        _set_size(e.shape, max(size, floor))
+                        set_abs(e, height=new_h)
                         ok = True
         elif op == "title_pos":
-            sh = shapes.get(f["id"])
-            if sh is not None:
-                _pin(sh)
-                sh.left, sh.top = Emu(int(f["pos"][0] * EMU)), Emu(int(f["pos"][1] * EMU))
+            e = els.get(f["id"])
+            if e is not None:
+                set_abs(e, left=f["pos"][0], top=f["pos"][1])
+                ok = True
+        elif op == "clamp":
+            e = els.get(f["id"])
+            if e is not None:
+                l, r = max(e.left, f["l"]), min(e.right, f["r"])
+                if r > l:
+                    set_abs(e, left=l, width=r - l)
+                    ok = True
+        elif op == "place":
+            e = els.get(f["id"])
+            if e is not None:
+                set_abs(e, left=f.get("left"), top=f.get("top"))
                 ok = True
         elif op == "align":
             edge, target = f["edge"], f["target"]
             axis = "x" if edge in ("left", "right", "center") else "y"
             for sid in f["ids"]:
-                sh = shapes.get(sid)
-                if sh is None or (iss.slide, sid, axis) in moved:
+                e = els.get(sid)
+                if e is None or (iss.slide, sid, axis) in moved:
                     continue
-                _pin(sh)
-                w, h = sh.width / EMU, sh.height / EMU
                 if edge == "left":
-                    sh.left = Emu(int(target * EMU))
+                    set_abs(e, left=target)
                 elif edge == "right":
-                    sh.left = Emu(int((target - w) * EMU))
+                    set_abs(e, left=target - e.width)
                 elif edge == "center":
-                    sh.left = Emu(int((target - w / 2) * EMU))
+                    set_abs(e, left=target - e.width / 2)
                 elif edge == "top":
-                    sh.top = Emu(int(target * EMU))
+                    set_abs(e, top=target)
                 elif edge == "bottom":
-                    sh.top = Emu(int((target - h) * EMU))
+                    set_abs(e, top=target - e.height)
                 moved.add((iss.slide, sid, axis))
             ok = True
         elif op == "distribute":
-            grp = [shapes[i] for i in f["ids"] if i in shapes]
+            grp = [els[i] for i in f["ids"] if i in els]
             if len(grp) >= 3:
                 row = f["axis"] == "row"
-                key = (lambda s: s.left) if row else (lambda s: s.top)
-                for s_ in grp:
-                    _pin(s_)
-                grp.sort(key=key)
+                grp.sort(key=lambda s: s.left if row else s.top)
                 size = (lambda s: s.width) if row else (lambda s: s.height)
-                start, end = key(grp[0]), key(grp[-1]) + size(grp[-1])
+                start = grp[0].left if row else grp[0].top
+                end = (grp[-1].right if row else grp[-1].bottom)
                 gap = (end - start - sum(size(s) for s in grp)) / (len(grp) - 1)
                 pos = start
                 for s in grp:
-                    if row:
-                        s.left = Emu(int(pos))
-                    else:
-                        s.top = Emu(int(pos))
+                    set_abs(s, **({"left": pos} if row else {"top": pos}))
                     pos += size(s) + gap
                 ok = True
         elif op == "straighten":
-            sh = shapes.get(f["id"])
+            e = els.get(f["id"])
+            sh = e.shape if e is not None else None
             if sh is not None and hasattr(sh, "begin_x"):
                 dx, dy = abs(sh.end_x - sh.begin_x), abs(sh.end_y - sh.begin_y)
                 if dx >= dy:

@@ -11,8 +11,10 @@ def render(pptx, issues, deck, outdir, dpi=80):
         pdf = glob.glob(os.path.join(tmp, "*.pdf"))[0]
         subprocess.run(["pdftoppm", "-png", "-r", str(dpi), pdf, os.path.join(outdir, "slide")], check=True)
     scale = dpi / 72.0
+    result = {}
     for path in sorted(glob.glob(os.path.join(outdir, "slide-*.png"))):
-        no = int(os.path.basename(path)[6:-4])
+        no = int(os.path.basename(path)[6:-4].lstrip('0') or 0)
+        result[no] = path
         mine = [i for i in issues if i.slide == no and i.bbox]
         if not mine:
             continue
@@ -22,3 +24,4 @@ def render(pptx, issues, deck, outdir, dpi=80):
             l, t, r, b = [v * scale for v in i.bbox]
             d.ellipse((l - 6, t - 6, r + 6, b + 6), outline=(220, 30, 30), width=3)
         im.save(path)
+    return result

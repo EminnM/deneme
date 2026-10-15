@@ -21,3 +21,10 @@ class Config:
     line_height: float = 1.2
     default_font: float = 18.0
     default_title_font: float = 32.0
+    title_gap: float = 6.0        # minimum clear space between a title's text and content below it
+    overlap_min: float = 1.0      # overlap thinner than this (pt) is ignored
+    peer_size_tol: float = 0.08   # same-size shapes: width/height within 8%
+    peer_pos_tol: float = 1.0     # "aligned" when within this many pt
+    icon_max: float = 90.0        # pictures/groups up to this size count as icons
+    icon_center_tol: float = 1.0  # icon nearly centred if within 10% of panel but > this off
+    icon_offset_tol: float = 1.5  # sibling panels: icon offset may differ by this much
