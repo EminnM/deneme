@@ -66,7 +66,7 @@ def build(path):
 
     # ---------------------------------------------------------------- 1 title
     s = prs.slides.add_slide(L_TITLE)
-    s.shapes.title.text = "Altheria Mental Health Strategy"
+    s.shapes.title.text = "Northvale Coffee Growth Strategy"
     s.placeholders[1].text = "Board discussion document - Q3"
     g = rect(s.shapes, 820, 440, 90, 50, GREY)          # forgotten grey box
     truth.append((1, "Leftover graphics", "grey box"))
@@ -86,15 +86,15 @@ def build(path):
     truth += [(2, "Alignment", "circle pushed right"), (2, "Alignment", "text 2pt low"), (2, "Spacing", "uneven gap")]
 
     # ---------------------------------------------------------------- 3 three columns
-    s = content_slide("Three structural barriers drive the gap")
-    bodies = ["Few trained specialists outside the capital; long waits for first appointment and almost no follow-up care.",
-              "Funding flows to hospital beds instead of community services, so patients are admitted late and stay long. "
-              "Referral pathways are unclear, discharge planning is rare, and families carry most of the burden at home "
-              "without support, training or respite options of any kind across regions. Private providers fill part of "
-              "the gap but are unaffordable for most households, and insurance coverage for outpatient therapy is "
-              "limited to a handful of sessions per year, which pushes people back to emergency departments. "
-              "Rural districts report waiting lists of more than six months for any psychiatric appointment.",
-              "Stigma keeps people from seeking help early; awareness campaigns are fragmented."]
+    s = content_slide("Three structural barriers slow store growth")
+    bodies = ["Few trained store managers outside the capital; long waits for first deliveries and almost no follow-up support.",
+              "Capital flows to flagship stores instead of small formats, so new sites open late and cost a lot. "
+              "Approval paths are unclear, hand-over planning is rare, and regional teams carry most of the burden alone "
+              "without support, training or backup options of any kind across regions. Franchise partners fill part of "
+              "the gap but are too costly for most smaller sites, and lease support for pop-up locations is "
+              "limited to a handful of agreements per year, which pushes operators back to the big-box model. "
+              "Regional areas report waiting lists of more than six months for any new site approval.",
+              "Weak brand awareness keeps customers from trying us early; marketing campaigns are fragmented."]
     for i in range(3):
         x = 36 + i * 300
         g = s.shapes.add_group_shape()
@@ -104,23 +104,23 @@ def build(path):
         g.shapes.add_picture(icon((46, 125, 140)), Pt(x + ic_dx - 36 + 5), Pt(ic_dy), Pt(40), Pt(40))
         font = "Comic Sans MS" if i == 2 else "Calibri"
         tb(g.shapes, x + 10, 190, 260, 250, bodies[i], 14, font=font)
-    tb(s.shapes, 36, 478, 600, 14, "Source: Ministry of Health annual report; team analysis", 8)
+    tb(s.shapes, 36, 478, 600, 14, "Source: industry annual report; team analysis", 8)
     truth += [(3, "Alignment", "header bar staggered"), (3, "Alignment", "icon off"), (3, "Text fit", "col 2 too long"),
               (3, "Consistency", "comic sans"), (3, "Readability", "8pt footnote")]
 
     # ---------------------------------------------------------------- 4 table + chart
-    s = content_slide("Mental health spending is far below peer benchmarks and the gap with comparable countries is widening every single year since 2018, which puts the whole reform agenda at risk", size=28)
+    s = content_slide("Marketing spending is far below peer benchmarks and the gap with comparable chains is widening every single year since 2018, which puts the whole growth agenda at risk", size=28)
     rows, cols = 5, 3
     gt = s.shapes.add_table(rows, cols, Pt(36), Pt(120), Pt(420), Pt(200))
-    data = [["Country", "Spend per capita", "Beds /100k"], ["Altheria", "$12", "18"], ["Peer A", "$46", "41"],
+    data = [["Chain", "Spend per store", "Stores /100k"], ["Northvale", "$12", "18"], ["Peer A", "$46", "41"],
             ["Peer B", "$51", "47"], ["Peer C", "$39", "35"]]
     for r in range(rows):
         for c in range(cols):
             gt.table.cell(r, c).text = data[r][c]
     cd = CategoryChartData(); cd.categories = ["2018", "2019", "2020", "2021"]
-    cd.add_series("Altheria", (10, 11, 12, 12)); cd.add_series("Peers", (38, 41, 44, 46))
+    cd.add_series("Northvale", (10, 11, 12, 12)); cd.add_series("Peers", (38, 41, 44, 46))
     s.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, Pt(420), Pt(140), Pt(480), Pt(300), cd)   # overlaps table
-    tb(s.shapes, 36, 470, 500, 14, "Source: WHO Mental Health Atlas", 7)
+    tb(s.shapes, 36, 470, 500, 14, "Source: retail benchmark report", 7)
     truth += [(4, "Titles", "3-line title"), (4, "Spacing", "chart overlaps table"), (4, "Readability", "7pt source")]
 
     # ---------------------------------------------------------------- 5 process
@@ -164,7 +164,7 @@ def build(path):
         g = s.shapes.add_group_shape()
         rect(g.shapes, x, y, w, 160, RGBColor(0xEE, 0xF1, 0xF5))
         g.shapes.add_picture(icon((30, 70, 110)), Pt(x + 12), Pt(y + 12), Pt(36), Pt(36))
-        tb(g.shapes, x + 56, y + 14, w - 70, 130, f"Lever {i + 1}: integrate care pathways between primary and secondary care", 14)
+        tb(g.shapes, x + 56, y + 14, w - 70, 130, f"Lever {i + 1}: integrate supply chains between regional and central warehouses", 14)
     truth += [(7, "Alignment", "card width 6pt"), (7, "Alignment", "card shifted 12pt"),
               (7, "Leftover graphics", "empty body placeholder"), (7, "Consistency", "no page number")]
 
@@ -173,7 +173,7 @@ def build(path):
     tb(s.shapes, 36, 66, 300, 100, "Decision 1: approve the funding envelope for year one", 16)   # box tucked under the title
     tb(s.shapes, 39, 220, 300, 100, "Decision 2: appoint a programme director", 16)
     tb(s.shapes, 41, 350, 300, 100, "Decision 3: confirm the pilot regions", 16)
-    tb(s.shapes, 400, 220, 500, 14, "Timeline subject to ministry sign-off", 8)
+    tb(s.shapes, 400, 220, 500, 14, "Timeline subject to board sign-off", 8)
     rect(s.shapes, 700, 380, 120, 60, GREY)
     truth += [(8, "Alignment", "lefts 36/39/41"), (8, "Readability", "8pt"), (8, "Leftover graphics", "grey box"),
               (8, "Titles", "box touching title")]

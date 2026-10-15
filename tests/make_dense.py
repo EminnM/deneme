@@ -37,15 +37,15 @@ def build(path, defects=True):
     prs.slide_width, prs.slide_height = Inches(13.333), Inches(7.5)
     s = prs.slides.add_slide(prs.slide_layouts[6])
     sh = s.shapes
-    title_text = "Altheria faces significant challenges in tackling mental health across the spectrum"
+    title_text = "Northvale faces significant challenges in expanding store coverage across the regions"
     # title (not a placeholder): 2 lines at 24pt in a 900pt wide box
     _text(sh, 36, 20, 880, 60, title_text, 24)
     col_w, gap, x0, y0 = 140, 10, 36, (84 if defects else 125)   # defect: content pushed up under the title
-    bodies = ["Large share of untreated patients, especially mild to moderate cases",
-              "Overcrowded mental hospitals jeopardized quality",
+    bodies = ["Large share of unserved towns, especially small to medium markets",
+              "Overcrowded flagship stores jeopardized quality",
               "Confusion about roles and responsibilities for each entity",
-              "Disintegrated care creates harder navigation of the system",
-              "Isolated facilities reinforce myths about patients",
+              "Disintegrated supply creates harder navigation of the system",
+              "Isolated sites reinforce myths about customers",
               "Gaps in service provision and workforce demand"]
     for i in range(6):
         x = x0 + i * (col_w + gap)

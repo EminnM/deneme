@@ -34,14 +34,14 @@ def build(path):
         return s
 
     s = prs.slides.add_slide(L_TITLE)
-    s.shapes.title.text = "Altheria Mental Health Strategy"
+    s.shapes.title.text = "Northvale Coffee Growth Strategy"
     s.placeholders[1].text = "Board discussion document"
 
     # ---- 2: three cards, every defect subtle
-    s = slide("Three levers will close the access gap")
-    bodies = ["Train and retain more specialists outside the capital.",
-              "Shift funding from hospital beds to community services.",
-              "Run one coordinated awareness programme nationwide."]
+    s = slide("Three levers will close the growth gap")
+    bodies = ["Train and retain more store managers outside the capital.",
+              "Shift investment from flagship stores to smaller formats.",
+              "Run one coordinated brand programme nationwide."]
     for i in range(3):
         x = 36 + i * 300
         g = s.shapes.add_group_shape()
@@ -73,7 +73,7 @@ def build(path):
 
     # ---- 4: KPI tiles, title squeezed
     s = slide("Key figures at a glance")
-    kp = [("41%", "untreated"), ("18", "beds / 100k"), ("$12", "per capita"), ("6 mo", "wait")]
+    kp = [("41%", "repeat visits"), ("18", "stores / 100k"), ("$12", "per cup"), ("6 mo", "payback")]
     for i, (v, l) in enumerate(kp):
         y = 127 if i == 2 else 130                                      # tile 3 is 3pt high
         fill = RGBColor(30, 70, 118) if i == 1 else RGBColor(30, 70, 110)   # tile 2 differs by 8 in blue
@@ -88,8 +88,8 @@ def build(path):
     # ---- 5: bullets overflow slightly, title 27pt, no page number
     s = slide("What we recommend", size=27, number=False)
     box = tb(s.shapes, 36, 120, 880, 112,
-             "Fund the workforce plan in year one.\nMove 20% of bed funding to community care.\n"
-             "Appoint one accountable programme director.\nPublish quarterly access figures.\nReview progress with the board each term.\nReport results to the ministry.", 16)
+             "Fund the workforce plan in year one.\nMove 20% of flagship funding to small formats.\n"
+             "Appoint one accountable programme director.\nPublish quarterly store figures.\nReview progress with the board each term.\nReport results to the board.", 16)
     truth += [(5, "Text fit", "bullets overflow by a few pt"), (5, "Consistency", "title 27pt"),
               (5, "Consistency", "no page number")]
     prs.save(path)
