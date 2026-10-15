@@ -14,6 +14,7 @@ def main(argv=None):
     ap.add_argument("--html", metavar="FILE.html", help="self-contained review page with annotated slide images")
     ap.add_argument("--dashboard", metavar="FILE.html", help="interactive reviewer dashboard (self-contained HTML)")
     ap.add_argument("--notes", metavar="FILE.txt", help="reviewer notes (terse + detailed what/why/fix for every issue)")
+    ap.add_argument("--dpi", type=int, default=80, help="resolution of rendered slide images (higher = sharper, bigger files)")
     ap.add_argument("--min-font", type=float)
     a = ap.parse_args(argv)
     cfg = Config()
@@ -52,21 +53,21 @@ def main(argv=None):
                   open(a.json, "w"), indent=2)
     if a.render:
         from .render import render
-        render(final_path, after if after is not None else before, deck, a.render)
+        render(final_path, after if after is not None else before, deck, a.render, a.dpi)
     if a.html or a.dashboard:
         import tempfile, os
         from .render import render
         from . import report as rep
         with tempfile.TemporaryDirectory() as tmp:
             orig = model.load(a.deck, cfg)
-            img_b = render(a.deck, before, orig, os.path.join(tmp, "b"))
-            img_a = render(final_path, after, deck, os.path.join(tmp, "a")) if after is not None else {}
+            img_b = render(a.deck, before, orig, os.path.join(tmp, "b"), a.dpi)
+            img_a = render(final_path, after, deck, os.path.join(tmp, "a"), a.dpi) if after is not None else {}
             if a.html:
                 open(a.html, "w").write(rep.html_report(deck, before, after, img_b, img_a))
             if a.dashboard:
                 from . import dashboard   # the dashboard draws its own interactive markers, so use clean renders
-                cb = render(a.deck, before, orig, os.path.join(tmp, "cb"), annotate=False)
-                ca = render(final_path, after, deck, os.path.join(tmp, "ca"), annotate=False) if after is not None else {}
+                cb = render(a.deck, before, orig, os.path.join(tmp, "cb"), a.dpi, annotate=False)
+                ca = render(final_path, after, deck, os.path.join(tmp, "ca"), a.dpi, annotate=False) if after is not None else {}
                 open(a.dashboard, "w").write(dashboard.html(deck, before, after, cb, ca, os.path.basename(a.deck)))
     remaining = after if after is not None else before
     return 1 if remaining else 0
