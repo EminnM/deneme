@@ -154,6 +154,82 @@ def _size_mismatch(sl, cfg, els, out):
                                      dict(op="resize", id=e.id, **{dim: target})))
 
 
+def _hex(c):
+    return "#%02X%02X%02X" % tuple(c)
+
+
+def _near_but_not_equal(a, b, limit=60):
+    d = sum(abs(x - y) for x, y in zip(a, b))
+    return 0 < d <= limit
+
+
+def _colour_consistency(sl, deck, cfg, out):
+    """Peers should share exactly one colour; a shade that is *almost* the same is an unnoticed mismatch."""
+    filled = [e for e in sl.leaves if e.kind in ("shape", "text") and e.fill is not None and not e.is_title
+              and min(e.width, e.height) >= 12]
+    for ps in _peer_sets(filled, cfg.peer_size_tol):
+        cnt = Counter(e.fill for e in ps)
+        main, n = cnt.most_common(1)[0]
+        if n < max(2, math.ceil(len(ps) / 2)):
+            continue
+        for e in ps:
+            if e.fill != main and _near_but_not_equal(e.fill, main):
+                out.append(Issue(sl.no, "Consistency",
+                                 f"Fill colour {_hex(e.fill)} is a slightly different shade from its {n} same-size peers ({_hex(main)}).",
+                                 [e.id], e.bbox, True, dict(op="fill", id=e.id, rgb=list(main))))
+    texts = [e for e in sl.leaves if e.kind == "text" and e.text_color is not None and not e.is_title]
+    for ps in _peer_sets(texts, cfg.peer_size_tol):
+        cnt = Counter(e.text_color for e in ps)
+        main, n = cnt.most_common(1)[0]
+        if n < max(2, math.ceil(len(ps) / 2)):
+            continue
+        for e in ps:
+            if e.text_color != main and _near_but_not_equal(e.text_color, main):
+                out.append(Issue(sl.no, "Consistency",
+                                 f"Text colour {_hex(e.text_color)} is a slightly different shade from its {n} same-size peers ({_hex(main)}).",
+                                 [e.id], e.bbox, True, dict(op="text_color", id=e.id, rgb=list(main))))
+
+
+def _text_offsets(sl, deck, cfg, out):
+    """Text boxes sitting on same-size panels should sit at the same offset in every panel."""
+    panels = [p for p in sl.leaves if p.kind == "shape" and not p.text.strip() and p.fill is not None
+              and min(p.width, p.height) >= 40]
+    pairs = []
+    for t in (e for e in sl.leaves if e.kind == "text" and not e.is_title and not e.is_number):
+        host = [p for p in panels if p.left - 1 <= t.left and p.top - 1 <= t.top
+                and p.right + 1 >= t.right - 20 and p.bottom + 1 >= t.top + 5]
+        if host:
+            pairs.append((t, min(host, key=lambda x: x.width * x.height)))
+    classes = []
+    for t, p in pairs:
+        for grp in classes:
+            if _similar(grp[0][1], p, cfg.peer_size_tol) and _similar(grp[0][0], t, cfg.peer_size_tol):
+                grp.append((t, p))
+                break
+        else:
+            classes.append([(t, p)])
+    for grp in classes:
+        if len(grp) < 3:
+            continue
+        offs = [(t.left - p.left, t.top - p.top, t, p) for t, p in grp]
+        buckets = defaultdict(list)
+        for o in offs:
+            buckets[(round(o[0] / cfg.icon_offset_tol), round(o[1] / cfg.icon_offset_tol))].append(o)
+        main = max(buckets.values(), key=len)
+        if len(main) < max(2, math.ceil(len(offs) / 2)):
+            continue
+        mdx, mdy = median(o[0] for o in main), median(o[1] for o in main)
+        okids = {m[2].id for m in main}
+        for dx, dy, t, p in offs:
+            ex, ey = dx - mdx, dy - mdy
+            if t.id in okids or max(abs(ex), abs(ey)) <= cfg.align_eps or max(abs(ex), abs(ey)) > 0.3 * max(p.width, p.height):
+                continue
+            out.append(Issue(sl.no, "Alignment",
+                             f"Text block sits {ex:+.0f},{ey:+.0f}pt from where the same text block sits in the sibling panels.",
+                             [t.id, p.id], _bbox_union([t, p]), True,
+                             dict(op="place", id=t.id, left=p.left + mdx, top=p.top + mdy)))
+
+
 def _icon_ids(sl, cfg):
     """Icons: pictures, or small text-free groups, below icon_max in size."""
     icons = []
@@ -249,6 +325,7 @@ def alignment(deck, cfg):
         icon_ids = {i for iss in icon_issues for i in iss.ids}
         _peer_alignment(sl, deck, cfg, leaves, edge_sets, out, icon_ids)
         _size_mismatch(sl, cfg, leaves, out)
+        _text_offsets(sl, deck, cfg, out)
         near = []   # (edge, spread, issue) collected, then thinned: a repeated offset is a design system
         for parent, kids in sl.siblings().items():
             els = [e for e in _layout_els(kids, deck) if not e.is_title]
@@ -574,7 +651,7 @@ def leftovers(deck, cfg):
                 if e.is_placeholder:
                     out.append(Issue(sl.no, "Leftover graphics", f"Empty placeholder '{e.name}'.",
                                      [e.id], e.bbox, True, dict(op="remove", id=e.id)))
-                elif not e.in_group and min(e.width, e.height) >= 6 and e.fill is not None:
+                elif not e.in_group and min(e.width, e.height) >= 12 and e.fill is not None:   # thinner = accent bar, not a blob
                     why = "grey/black box" if _grey_or_black(e.fill) else "coloured blob"
                     out.append(Issue(sl.no, "Leftover graphics",
                                      f"Empty {why} '{e.name}' with no text or content.",
@@ -601,6 +678,8 @@ def consistency(deck, cfg):
                                      f"Font {', '.join(odd)} differs from {label}.",
                                      [e.id], e.bbox, True,
                                      dict(op="font", id=e.id, font=None if dom == "<theme>" else dom)))
+    for sl in deck.slides:
+        _colour_consistency(sl, deck, cfg, out)
     # body text size: same-size text boxes (e.g. the columns of one slide) should use the same size
     for sl in deck.slides:
         texts = [e for e in sl.leaves if e.kind == "text" and not e.is_title and not e.is_number and e.sizes]

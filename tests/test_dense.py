@@ -39,13 +39,21 @@ class Dense(unittest.TestCase):
 
     def test_fix_moves_shapes_inside_groups(self):
         deck, issues = self.run_checks(self.bad)
-        self.assertGreater(fixer.apply(deck, issues, self.cfg), 0)
+        first = len(issues)
         out = os.path.join(self.tmp, "fixed.pptx")
+        pending = issues
+        for _ in range(4):          # same multi-pass loop the CLI uses
+            if not fixer.apply(deck, pending, self.cfg):
+                break
+            deck.prs.save(out)
+            deck, after = self.run_checks(out)
+            pending = [i for i in after if i.fixable]
+            if not pending:
+                break
         deck.prs.save(out)
         _, after = self.run_checks(out)
-        left = [i.message for i in after if i.fixable]
-        self.assertEqual(left, [])
-        self.assertLess(len(after), len(issues))
+        self.assertEqual([i.message for i in after if i.fixable], [])
+        self.assertLess(len(after), first)
 
     def test_group_transform_is_applied(self):
         prs = Presentation()

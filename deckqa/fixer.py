@@ -1,6 +1,7 @@
 """Applies the machine-readable fixes attached to issues. Works on live python-pptx shapes,
 converting absolute slide coordinates back into each shape's own (possibly group-local) space."""
 from pptx.util import Pt, Emu
+from pptx.dml.color import RGBColor
 
 from .config import Config
 from .textfit import measure, overflow_bottom
@@ -93,7 +94,7 @@ def apply(deck, issues, cfg: Config):
     n = 0
     moved = set()  # (slide, shape_id, axis) already positioned
     order = {"remove": 0, "font": 1, "title_size": 1, "min_font": 2, "fit": 3, "title_fit": 3,
-             "title_pos": 4, "align": 5, "place": 5, "resize": 5, "clamp": 3, "distribute": 6, "straighten": 7, "add_number": 8}
+             "title_pos": 4, "align": 5, "place": 5, "fill": 2, "text_color": 2, "resize": 5, "clamp": 3, "distribute": 6, "straighten": 7, "add_number": 8}
     todo = sorted((i for i in issues if i.fixable and i.fix), key=lambda i: order.get(i.fix["op"], 9))
     for iss in todo:
         sl = deck.slides[iss.slide - 1]
@@ -169,6 +170,19 @@ def apply(deck, issues, cfg: Config):
             e = els.get(f["id"])
             if e is not None:
                 set_abs(e, width=f.get("width"), height=f.get("height"))
+                ok = True
+        elif op == "fill":
+            e = els.get(f["id"])
+            if e is not None:
+                e.shape.fill.solid()
+                e.shape.fill.fore_color.rgb = RGBColor(*f["rgb"])
+                ok = True
+        elif op == "text_color":
+            e = els.get(f["id"])
+            if e is not None:
+                for p_ in e.shape.text_frame.paragraphs:
+                    for r in p_.runs:
+                        r.font.color.rgb = RGBColor(*f["rgb"])
                 ok = True
         elif op == "clamp":
             e = els.get(f["id"])

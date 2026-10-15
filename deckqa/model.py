@@ -34,6 +34,7 @@ class El:
     implicit_runs: int = 0         # runs that inherit the theme font
     bold: bool = False
     fill: Optional[tuple] = None
+    text_color: Optional[tuple] = None   # explicit RGB of the first coloured run
     line: Optional[tuple] = None   # (x1, y1, x2, y2) absolute points for connectors
     has_pic: bool = False          # group that contains pictures
     n_leaves: int = 0              # for groups: number of leaf shapes inside
@@ -122,6 +123,12 @@ def load_element(shape, slide_no, cfg, slide_h, xf=IDENT, parent=None):
             el.implicit_runs += 1
         if r.font.bold:
             el.bold = True
+        if el.text_color is None:
+            try:
+                if r.font.color.type is not None and r.font.color.rgb is not None:
+                    el.text_color = tuple(r.font.color.rgb)
+            except Exception:
+                pass
     if el.kind == "text" and not el.sizes:
         el.sizes = [cfg.default_title_font if el.is_title else cfg.default_font]
     el.fill = _fill(shape) if kind in ("shape", "text") else None
