@@ -152,10 +152,11 @@ function matrix(){
   $('matrix').innerHTML=h;
   $('matrix').querySelectorAll('td.c').forEach(td=>td.onclick=()=>{S.cat=td.dataset.c;go(+td.dataset.n)});
 }
+function z(i){const [l,t,r,b]=i.bbox;return 100+Math.round(1000-((r-l)*(b-t))/(D.w*D.h)*1000)}
 function boxes(list,cls){
   return list.filter(i=>i.bbox).map((i,k)=>{
     const [l,t,r,b]=i.bbox;
-    return `<div class="box ${cls||''}" data-k="${i._k}" style="left:${l/D.w*100}%;top:${t/D.h*100}%;width:${(r-l)/D.w*100}%;height:${(b-t)/D.h*100}%;border-color:${cls==='fixed'?'':COL[i.cat]}" title="${esc(i.cat+': '+i.msg)}"></div>`}).join('');
+    return `<div class="box ${cls||''}" data-k="${i._k}" style="z-index:${z(i)};left:${l/D.w*100}%;top:${t/D.h*100}%;width:${(r-l)/D.w*100}%;height:${(b-t)/D.h*100}%;border-color:${cls==='fixed'?'':COL[i.cat]}" title="${esc(i.cat+': '+i.msg)}"></div>`}).join('');
 }
 function view(){
   const s=D.slides[S.slide-1];
@@ -169,7 +170,7 @@ function view(){
   s.found.forEach((i,k)=>i._k='f'+k);s.left.forEach((i,k)=>i._k='l'+k);
   const orig=`<div class="viewer"><img src="${s.before||''}" alt="Original slide ${s.no}">${sb?boxes(s.found.map(i=>i),'').replace(/class="box "/g,'class="box"'):''}</div>`;
   const fixedBoxes=s.found.map(i=>({...i,_k:i._k}));
-  const origHtml=`<div class="viewer"><img src="${s.before||''}" alt="Original">${sb?s.found.filter(i=>i.bbox).map(i=>{const [l,t,r,b]=i.bbox;return `<div class="box ${i.status==='fixed'?'fixed':''}" data-k="${i._k}" style="left:${l/D.w*100}%;top:${t/D.h*100}%;width:${(r-l)/D.w*100}%;height:${(b-t)/D.h*100}%;${i.status==='fixed'?'':'border-color:'+COL[i.cat]}" title="${esc(i.cat+': '+i.msg)}"></div>`}).join(''):''}</div>`;
+  const origHtml=`<div class="viewer"><img src="${s.before||''}" alt="Original">${sb?s.found.filter(i=>i.bbox).map(i=>{const [l,t,r,b]=i.bbox;return `<div class="box ${i.status==='fixed'?'fixed':''}" data-k="${i._k}" style="z-index:${z(i)};left:${l/D.w*100}%;top:${t/D.h*100}%;width:${(r-l)/D.w*100}%;height:${(b-t)/D.h*100}%;${i.status==='fixed'?'':'border-color:'+COL[i.cat]}" title="${esc(i.cat+': '+i.msg)}"></div>`}).join(''):''}</div>`;
   const aftHtml=s.after?`<div class="viewer"><img src="${s.after}" alt="After">${sb?boxes(s.left,''):''}</div>`:'';
   if(S.tab==='before')$('view').innerHTML=origHtml;
   else if(S.tab==='after')$('view').innerHTML=aftHtml||origHtml;

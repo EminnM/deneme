@@ -42,3 +42,10 @@ Thresholds live in `deckqa/config.py`.
 Each run gives a per-slide summary (found / auto-fixed / left, passing checks), a suggested
 Accept / Fix / Reject hint (Fix = about 5 minutes or less of human work, Reject = more), and with
 `--html` a page showing the original and fixed slide images with problems circled.
+
+## Dashboard
+
+`python -m deckqa deck.pptx --fix fixed.pptx --dashboard dashboard.html` writes one offline HTML page:
+heatmap of slides x checks, original / after-fix / compare views with clickable markers, per-issue
+"fix is good / wrong" decisions, per-slide reviewed ticks, final Accept / Fix / Reject, notes, and
+JSON export. Browser test (42 checks): `DASH_DIR=<dir> PLAYWRIGHT_PATH=<path> node tests/e2e/dashboard.e2e.js`.
