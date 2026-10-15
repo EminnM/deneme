@@ -2,6 +2,8 @@ import math
 from collections import Counter, defaultdict
 from statistics import median
 
+from pptx.enum.text import MSO_AUTO_SIZE
+
 from .issues import Issue
 from .textfit import measure
 
@@ -120,7 +122,8 @@ def text_fit(deck, cfg):
             if tf.word_wrap is not False and m["split"]:
                 out.append(Issue(sl.no, "Text fit", "A word is wider than its box and will split mid-word.",
                                  [e.id], e.bbox, True, dict(op="fit", id=e.id)))
-            if m["height"] > e.height + 1.0:
+            auto = tf.auto_size in (MSO_AUTO_SIZE.SHAPE_TO_FIT_TEXT, MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE)
+            if m["height"] > e.height + 1.0 and not auto and e.height >= 1.0:  # height 0 = auto-growing box
                 out.append(Issue(sl.no, "Text fit",
                                  f"Text needs ~{m['height']:.0f}pt but box is {e.height:.0f}pt tall (spills out).",
                                  [e.id], e.bbox, True, dict(op="fit", id=e.id)))

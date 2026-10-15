@@ -2,6 +2,7 @@
 from pptx import Presentation
 from pptx.util import Pt, Emu, Inches
 from pptx.dml.color import RGBColor
+from pptx.enum.text import MSO_AUTO_SIZE
 from pptx.enum.shapes import MSO_SHAPE, MSO_CONNECTOR
 
 
@@ -26,6 +27,7 @@ def build(path):
     def box(s, l, t, w, h, text, size=16, font="Arial"):
         b = s.shapes.add_textbox(Inches(l), Inches(t), Inches(w), Inches(h))
         b.text_frame.word_wrap = True
+        b.text_frame.auto_size = MSO_AUTO_SIZE.NONE  # fixed-size box, like a designed card
         b.text_frame.text = text
         r = b.text_frame.paragraphs[0].runs[0]
         r.font.size, r.font.name = Pt(size), font
