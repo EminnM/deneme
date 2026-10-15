@@ -25,3 +25,17 @@ class Sloppy(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Explain(unittest.TestCase):
+    def test_every_issue_gets_a_real_explanation_and_terse_notes(self):
+        from deckqa import explain
+        tmp = tempfile.mkdtemp()
+        truth, hit, miss, extra, issues = score.score(os.path.join(tmp, "s.pptx"))
+        for i in issues:
+            e = explain.explain(i)
+            self.assertNotEqual(e["label"], "issue", f"unclassified: {i.message}")
+            self.assertTrue(e["why"] and e["fix"])
+        notes = explain.notes(issues)
+        self.assertIn("Slide 4: elements overlap", notes)
+        self.assertRegex(notes, r"Multiple slides \(.*\): text too small to read")

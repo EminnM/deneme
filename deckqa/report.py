@@ -1,6 +1,7 @@
 import base64, html, os
 from collections import defaultdict
 from .config import CATEGORIES
+from . import explain as ex
 
 MIN_MANUAL = 1.5    # minutes a human needs per issue the tool cannot fix
 MIN_REVIEW = 0.25   # minutes to eyeball an auto-fixed / auto-fixable change
@@ -72,6 +73,7 @@ def markdown(deck, before, after=None, title="Deck QA report"):
             if i.status == "fixed":
                 out.append(f"- Slide {i.slide} / {i.category}: {i.message}")
         out.append("")
+    out += ["## Reviewer notes (paste-ready)", "", "```", ex.notes(before, deck.width, deck.height) or "No problems found.", "```", ""]
     todo = after if after is not None else before
     out += ["## Needs human attention" if after is not None else "## Issues", ""]
     cur = None
@@ -152,3 +154,9 @@ def html_report(deck, before, after, img_before, img_after, title="Deck QA revie
             parts.append(f"<li class=ok>Passing: {html.escape(', '.join(r['clean']))}</li>")
         parts.append("</ul></section>")
     return "".join(parts)
+
+
+def explanations_text(deck, before):
+    """Terse notes first, then the full what / why / fix write-up for every issue found."""
+    return ("REVIEWER NOTES\n" + (ex.notes(before, deck.width, deck.height) or "No problems found.")
+            + "\n\nDETAILS\n" + ex.detailed(before, deck.width, deck.height) + "\n")

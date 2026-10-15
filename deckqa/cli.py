@@ -13,6 +13,7 @@ def main(argv=None):
     ap.add_argument("--render", metavar="DIR", help="render slides to PNG with problems circled")
     ap.add_argument("--html", metavar="FILE.html", help="self-contained review page with annotated slide images")
     ap.add_argument("--dashboard", metavar="FILE.html", help="interactive reviewer dashboard (self-contained HTML)")
+    ap.add_argument("--notes", metavar="FILE.txt", help="reviewer notes (terse + detailed what/why/fix for every issue)")
     ap.add_argument("--min-font", type=float)
     a = ap.parse_args(argv)
     cfg = Config()
@@ -43,6 +44,8 @@ def main(argv=None):
         open(a.report, "w").write(md)
     else:
         print(md)
+    if a.notes:
+        open(a.notes, "w").write(report.explanations_text(deck, before))
     if a.json:
         json.dump(dict(before=[i.to_dict() for i in before],
                        after=[i.to_dict() for i in after] if after is not None else None),

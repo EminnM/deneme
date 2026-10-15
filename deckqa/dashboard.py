@@ -3,6 +3,7 @@ import base64, json
 
 from .config import CATEGORIES
 from .report import deck_verdict, describe_fix
+from . import explain as ex
 
 
 def _img(path):
@@ -19,7 +20,9 @@ def build_data(deck, before, after, img_before, img_after, name):
         a = [i for i in left if i.slide == sl.no]
 
         def row(i, remaining):
+            e = ex.explain(i, deck.width, deck.height)
             return dict(cat=i.category, msg=i.message, fixable=i.fixable, status=i.status,
+                        label=e["label"], why=e["why"], tip=e["fix"], sev=e["severity"], where=e["where"],
                         bbox=[round(v, 1) for v in i.bbox] if i.bbox else None,
                         how=describe_fix(i) if (i.status == "fixed") else "", remaining=remaining)
         fixed = [row(i, False) for i in b if i.status == "fixed"]
@@ -29,7 +32,7 @@ def build_data(deck, before, after, img_before, img_after, name):
                            after=_img(img_after[sl.no]) if (after is not None and sl.no in img_after) else None,
                            found=found, fixed=fixed, left=rem,
                            state="clean" if not b else ("fixed" if not a else "attention")))
-    return dict(name=name, w=deck.width, h=deck.height, cats=CATEGORIES, slides=slides,
+    return dict(name=name, notes=ex.notes(before, deck.width, deck.height), w=deck.width, h=deck.height, cats=CATEGORIES, slides=slides,
                 verdict=verdict, minutes=round(mins, 1), has_fix=after is not None,
                 n_found=len(before), n_fixed=sum(1 for i in before if i.status == "fixed"), n_left=len(left))
 
@@ -79,7 +82,7 @@ h3{margin:0 0 8px;font-size:14px}h3 small{color:var(--mute);font-weight:400}
 .iss{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:8px;background:var(--card)}
 .iss.hl{border-color:#ffb703;box-shadow:0 0 0 2px rgba(255,183,3,.4)}
 .cat{font-size:11px;font-weight:600;padding:1px 8px;border-radius:99px;color:#fff;display:inline-block}
-.how{color:var(--fix);font-size:12px;margin-top:3px}.mute{color:var(--mute)}
+.sev{font-size:10px;text-transform:uppercase;border-radius:6px;padding:0 6px;border:1px solid var(--line)}.sev.high{color:var(--bad);border-color:var(--bad)}.sev.medium{color:var(--warn);border-color:var(--warn)}details{margin-top:3px}summary{cursor:pointer;font-size:12px}\n.how{color:var(--fix);font-size:12px;margin-top:3px}.mute{color:var(--mute)}
 .acts{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
 .btn{border:1px solid var(--line);background:var(--chip);border-radius:8px;padding:3px 10px;font-size:12px}
 .btn.on.good{background:var(--ok);border-color:var(--ok);color:#fff}.btn.on.badc{background:var(--bad);border-color:var(--bad);color:#fff}.btn.on.neutral{background:var(--mute);border-color:var(--mute);color:#fff}
@@ -111,7 +114,7 @@ textarea{width:100%;min-height:70px;border:1px solid var(--line);border-radius:8
     <section class="card pad"><h3>This slide</h3><div class="tabs" id="filters"></div><div id="issues"></div></section>
     <section class="card pad"><h3>Your verdict</h3><div class="sugg" id="sugg"></div>
       <div class="verd" id="verd"></div><textarea id="notes" placeholder="Notes on the problems you found..."></textarea>
-      <div class="row" style="margin-top:8px"><button class="btn" id="exp">Download decisions (JSON)</button><button class="btn" id="cpy">Copy summary</button><button class="btn" id="rst">Reset</button></div>
+      <div class="row" style="margin-top:8px"><button class="btn" id="ins">Insert tool notes</button><button class="btn" id="exp">Download decisions (JSON)</button><button class="btn" id="cpy">Copy summary</button><button class="btn" id="rst">Reset</button></div>
       <div class="sugg" id="prog" style="margin-top:6px"></div></section>
   </aside>
 </div>
@@ -150,7 +153,7 @@ function matrix(){
   }
   h+='</table><div class="sugg" style="margin-top:6px">! needs a human &nbsp; fixed = auto-fixed &nbsp; ok = passed</div>';
   $('matrix').innerHTML=h;
-  $('matrix').querySelectorAll('td.c').forEach(td=>td.onclick=()=>{S.cat=td.dataset.c;go(+td.dataset.n)});
+  $('matrix').querySelectorAll('td.c').forEach(td=>td.onclick=()=>{S.cat=td.dataset.c;go(+td.dataset.n,true)});
 }
 function z(i){const [l,t,r,b]=i.bbox;return 100+Math.round(1000-((r-l)*(b-t))/(D.w*D.h)*1000)}
 function boxes(list,cls){
@@ -188,7 +191,8 @@ function issues(){
   const f=i=>!S.cat||i.cat===S.cat;
   const fx=s.found.filter(i=>i.status==='fixed'&&f(i)),rem=s.left.filter(f);
   const card=(i,fixed)=>{const k=i._k,d=dec(k);
-    return `<div class="iss ${HL===k?'hl':''}" data-k="${k}"><span class="cat" style="background:${COL[i.cat]}">${esc(i.cat)}</span> ${esc(i.msg)}
+    return `<div class="iss ${HL===k?'hl':''}" data-k="${k}"><span class="cat" style="background:${COL[i.cat]}">${esc(i.cat)}</span> <span class="sev ${i.sev}">${i.sev}</span> <b>${esc(i.label)}</b> <span class="mute">(${esc(i.where)})</span><div>${esc(i.msg)}</div>
+     <details><summary class="mute">Why it matters / how to fix</summary><div class="mute"><b>Why:</b> ${esc(i.why)}<br><b>Fix:</b> ${esc(i.tip)}</div></details>
      ${fixed?`<div class="how">Auto-fix: ${esc(i.how)}</div>`:`<div class="mute">${i.fixable?'Auto-fix could not resolve this':'Manual - needs your judgement'}</div>`}
      <div class="acts">${fixed?`<button class="btn good ${d==='ok'?'on':''}" data-a="ok">Fix is good</button><button class="btn badc ${d==='bad'?'on':''}" data-a="bad">Fix is wrong</button>`
         :`<button class="btn good ${d==='done'?'on':''}" data-a="done">Handled</button><button class="btn neutral ${d==='ignore'?'on':''}" data-a="ignore">Not a problem</button><button class="btn badc ${d==='todo'?'on':''}" data-a="todo">Needs rework</button>`}</div></div>`};
@@ -221,9 +225,10 @@ function summary(){
   }
   if(S.notes)lines.push('','Notes: '+S.notes);return lines.join('\n');
 }
-function go(n){S.slide=Math.max(1,Math.min(D.slides.length,n));HL=null;save();rail();view();issues()}
+function go(n,keep){S.slide=Math.max(1,Math.min(D.slides.length,n));HL=null;if(!keep)S.cat=null;save();rail();view();issues()}
 $('prev').onclick=()=>go(S.slide-1);$('next').onclick=()=>go(S.slide+1);
 $('rvbtn').onclick=()=>{S.rev[S.slide]=!S.rev[S.slide];save();rail();view();stats()};
+$('ins').onclick=()=>{const cur=S.notes?S.notes.trim()+'\\n':'';if(!cur.includes(D.notes.split('\\n')[0])){S.notes=cur+D.notes;save();$('notes').value=S.notes}};
 $('exp').onclick=()=>{const b=new Blob([JSON.stringify({deck:D.name,verdict:S.verdict,notes:S.notes,decisions:S.dec,reviewed:S.rev,summary:summary()},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='deck-review.json';a.click()};
 $('cpy').onclick=async()=>{try{await navigator.clipboard.writeText(summary());$('cpy').textContent='Copied'}catch(e){prompt('Copy:',summary())}setTimeout(()=>$('cpy').textContent='Copy summary',1500)};
 $('rst').onclick=()=>{if(confirm('Clear all your decisions for this deck?')){S={slide:1,tab:S.tab,dec:{},rev:{},verdict:'',notes:'',cat:null};save();init()}};
