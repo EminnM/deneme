@@ -14,6 +14,7 @@ def main(argv=None):
     ap.add_argument("--html", metavar="FILE.html", help="self-contained review page with annotated slide images")
     ap.add_argument("--dashboard", metavar="FILE.html", help="interactive reviewer dashboard (self-contained HTML)")
     ap.add_argument("--notes", metavar="FILE.txt", help="reviewer notes (terse + detailed what/why/fix for every issue)")
+    ap.add_argument("--verify", metavar="FILE.html", help="blind verification board: what is measured and correct on every slide, per checklist item (no fixes shown)")
     ap.add_argument("--dpi", type=int, default=80, help="resolution of rendered slide images (higher = sharper, bigger files)")
     ap.add_argument("--min-font", type=float)
     a = ap.parse_args(argv)
@@ -45,6 +46,15 @@ def main(argv=None):
         open(a.report, "w").write(md)
     else:
         print(md)
+    if a.verify:
+        import tempfile, os
+        from .render import render
+        from . import verify, verify_html
+        orig = model.load(a.deck, cfg)
+        data = verify.build(orig, cfg)
+        with tempfile.TemporaryDirectory() as tmp:
+            imgs = render(a.deck, [], orig, os.path.join(tmp, "v"), a.dpi if a.dpi != 80 else 110, annotate=False)
+            open(a.verify, "w").write(verify_html.html(data, imgs, os.path.basename(a.deck)))
     if a.notes:
         open(a.notes, "w").write(report.explanations_text(deck, before))
     if a.json:

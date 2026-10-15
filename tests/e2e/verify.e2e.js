@@ -1,0 +1,54 @@
+// usage: DASH_DIR=<folder with verify_subtle.html, verify_clean.html> PLAYWRIGHT_PATH=<path to playwright> node verify.e2e.js
+const { chromium } = require(process.env.PLAYWRIGHT_PATH || 'playwright');
+const D=(process.env.DASH_DIR||'.')+'/';
+let pass=0,fail=0;const ok=(c,m)=>{if(c){pass++;console.log('PASS',m)}else{fail++;console.log('FAIL',m)}};
+(async()=>{
+  const b=await chromium.launch();const errs=[];
+  const ctx=await b.newContext({viewport:{width:1500,height:1000},acceptDownloads:true});
+  const pg=await ctx.newPage();pg.on('pageerror',e=>errs.push(String(e)));pg.on('console',m=>{if(m.type()==='error')errs.push(m.text())});
+  await pg.goto('file://'+D+'verify_subtle.html');await pg.waitForTimeout(300);
+  ok(await pg.$$eval('#matrix td.c',e=>e.length)===40,'coverage grid is 5 slides x 8 items');
+  ok(await pg.$$eval('.th',e=>e.length)===5,'5 slide thumbnails');
+  ok((await pg.textContent('#gl')).includes('cannot tell you'),'limits notice is shown');
+  const txt=(await pg.content()).toLowerCase();
+  ok(!txt.includes('auto-fix')&&!txt.includes('after fix'),'blind: no fix wording on the page');
+  ok(await pg.$$eval('#crits .crit',e=>e.length)===8,'8 checklist cards for the slide');
+  await pg.click('#matrix td.c[data-n="3"][data-c="Lines and arrows"]');await pg.waitForTimeout(200);
+  ok((await pg.textContent('#stitle')).startsWith('Slide 3'),'grid click opens slide 3');
+  ok(await pg.$eval('.crit.sel',e=>e.dataset.c)==='Lines and arrows','grid click focuses that checklist item');
+  ok(await pg.$$eval('#view .vb.flag',e=>e.length)>=1,'a red box marks the crooked arrow');
+  await pg.click('.crit[data-c="Spacing"] .ch');await pg.waitForTimeout(150);
+  ok(await pg.$$eval('#view .vb:not(.flag)',e=>e.length)>=1,'Spacing shows green confirmed boxes');
+  ok((await pg.textContent('.crit.sel')).includes('Does not confirm'),'selected item states what it does not confirm');
+  await pg.click('#invd summary');ok((await pg.textContent('#inv')).includes('Arial'),'inventory lists Arial');
+  ok((await pg.textContent('#inv')).includes('worth a look'),'inventory flags the rarely used font');
+  await pg.click('details:has(#elt) summary');await pg.click('#elt tr[data-i="2"]');
+  ok(await pg.$$eval('#view .vb.pick',e=>e.length)===1,'clicking an element row highlights it on the slide');
+  // ticks persist
+  await pg.check('.crit[data-c="Alignment"] input');await pg.check('.crit[data-c="Titles"] input');
+  ok((await pg.textContent('#prog')).startsWith('2 of 8'),'ticking updates the slide counter');
+  await pg.click('#all');ok((await pg.textContent('#prog')).startsWith('8 of 8'),'Tick all 8 works');
+  await pg.click('#none');ok((await pg.textContent('#prog')).startsWith('0 of 8'),'Clear works');
+  await pg.click('#all');await pg.fill('#notes','arrow looks off');
+  await pg.reload();await pg.waitForTimeout(250);
+  ok((await pg.textContent('#prog')).startsWith('8 of 8'),'reload keeps ticks');
+  ok((await pg.inputValue('#notes'))==='arrow looks off','reload keeps notes');
+  ok(await pg.$$eval('#matrix td.dn',e=>e.length)===8,'grid shows the ticked cells');
+  const [dl]=await Promise.all([pg.waitForEvent('download'),pg.click('#exp')]);
+  const j=JSON.parse(require('fs').readFileSync(await dl.path(),'utf8'));
+  ok(Object.keys(j.checked).length===8&&j.notes==='arrow looks off','export has ticks and notes');
+  await pg.keyboard.press('ArrowRight');ok((await pg.textContent('#stitle')).startsWith('Slide 4'),'ArrowRight goes to slide 4');
+  pg.once('dialog',d=>d.accept());await pg.click('#rst');await pg.waitForTimeout(200);
+  ok((await pg.$$eval('.stat b',e=>e[3].textContent)).startsWith('0/'),'reset clears ticks');
+  await pg.setViewportSize({width:400,height:850});await pg.waitForTimeout(200);
+  ok(await pg.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),'phone width: no horizontal page scroll');
+  // clean deck: all applicable items pass
+  const p2=await ctx.newPage();p2.on('pageerror',e=>errs.push(String(e)));
+  await p2.goto('file://'+D+'verify_clean.html');await p2.waitForTimeout(250);
+  ok(await p2.$$eval('#crits .pill.flag',e=>e.length)===0,'clean slide: nothing flagged');
+  ok(await p2.$$eval('#crits .pill.pass',e=>e.length)>=5,'clean slide: most items confirmed OK');
+  await p2.click('.crit[data-c="Consistency"] .ch');
+  ok((await p2.textContent('.crit.sel')).includes('Calibri')||(await p2.textContent('.crit.sel')).includes('Arial'),'consistency evidence names the font');
+  ok(errs.length===0,'no JS errors ('+errs.join(' | ')+')');
+  console.log(`\n${pass} passed, ${fail} failed`);await b.close();process.exit(fail?1:0);
+})();

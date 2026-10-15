@@ -49,3 +49,14 @@ Accept / Fix / Reject hint (Fix = about 5 minutes or less of human work, Reject 
 heatmap of slides x checks, original / after-fix / compare views with clickable markers, per-issue
 "fix is good / wrong" decisions, per-slide reviewed ticks, final Accept / Fix / Reject, notes, and
 JSON export. Browser test (42 checks): `DASH_DIR=<dir> PLAYWRIGHT_PATH=<path> node tests/e2e/dashboard.e2e.js`.
+
+## Verification board (blind, no fixes shown)
+
+`python -m deckqa deck.pptx --verify board.html` writes an offline page that shows the deck exactly as received.
+For every slide and every one of the 8 checklist items it says what was measured and found correct (green boxes on
+the slide), what needs a look (red), or that the item does not apply. It also shows a deck inventory (fonts, sizes,
+colours, titles, page numbers, odd ones out flagged), an "everything on this slide" table with font, size, colours
+and position per element, a coverage grid, and a tick box per item per slide so no criterion is skipped.
+No fix is applied or shown, so a reviewer forms their own view first. Each item also states what it does *not*
+confirm (wording, facts, chart data, images, taste). Browser test (27 checks):
+`DASH_DIR=<dir> PLAYWRIGHT_PATH=<path> node tests/e2e/verify.e2e.js`.

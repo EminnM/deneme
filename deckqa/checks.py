@@ -423,49 +423,60 @@ def overlaps(deck, cfg):
     return out
 
 
+def row_col_groups(els):
+    """Every row/column of 3+ shapes that really line up: yields (axis, members sorted, gaps)."""
+    for axis in ("row", "col"):
+        used = set()
+        for e in els:
+            if id(e) in used:
+                continue
+            grp = [o for o in els if (
+                (min(e.bottom, o.bottom) - max(e.top, o.top) > min(e.height, o.height) * 0.5) if axis == "row"
+                else (min(e.right, o.right) - max(e.left, o.left) > min(e.width, o.width) * 0.5))]
+            for g in grp:
+                used.add(id(g))
+            if len(grp) < 3:
+                continue
+            grp.sort(key=lambda s: s.left if axis == "row" else s.top)
+            gaps = [(grp[i + 1].left - grp[i].right) if axis == "row" else (grp[i + 1].top - grp[i].bottom)
+                    for i in range(len(grp) - 1)]
+            if any(g < -0.5 for g in gaps):
+                continue  # overlapping layout, not a spacing row
+            # members must really line up as a row/column, or "distributing" them would scatter unrelated shapes
+            cross = [(g.cy if axis == "row" else g.cx) for g in grp]
+            span = max((g.height if axis == "row" else g.width) for g in grp)
+            if max(cross) - min(cross) > 0.35 * span:
+                continue
+            yield axis, grp, gaps
+
+
+def gap_marks(axis, grp):
+    marks = []
+    for i in range(len(grp) - 1):
+        a_, b_ = grp[i], grp[i + 1]
+        if axis == "row":
+            marks.append((a_.right, min(a_.top, b_.top), b_.left, max(a_.bottom, b_.bottom)))
+        else:
+            marks.append((min(a_.left, b_.left), a_.bottom, max(a_.right, b_.right), b_.top))
+    return marks
+
+
 def spacing(deck, cfg):
     out = []
     for sl in deck.slides:
         els = [e for e in _layout_els(sl.els, deck) if not e.is_title]
         # uneven gaps in rows and columns
-        for axis in ("row", "col"):
-            used = set()
-            for e in els:
-                if id(e) in used:
-                    continue
-                grp = [o for o in els if (
-                    (min(e.bottom, o.bottom) - max(e.top, o.top) > min(e.height, o.height) * 0.5) if axis == "row"
-                    else (min(e.right, o.right) - max(e.left, o.left) > min(e.width, o.width) * 0.5))]
-                for g in grp:
-                    used.add(id(g))
-                if len(grp) < 3:
-                    continue
-                grp.sort(key=lambda s: s.left if axis == "row" else s.top)
-                gaps = [(grp[i + 1].left - grp[i].right) if axis == "row" else (grp[i + 1].top - grp[i].bottom)
-                        for i in range(len(grp) - 1)]
-                if any(g < -0.5 for g in gaps):
-                    continue  # overlapping layout, not a spacing row
-                # members must really line up as a row/column, or "distributing" them would scatter unrelated shapes
-                cross = [(g.cy if axis == "row" else g.cx) for g in grp]
-                span = max((g.height if axis == "row" else g.width) for g in grp)
-                if max(cross) - min(cross) > 0.35 * span:
-                    continue
-                if max(gaps) - min(gaps) > cfg.gap_tol:
-                    marks = []   # the gaps themselves, so a reviewer can see which one is off
-                    for i in range(len(grp) - 1):
-                        a_, b_ = grp[i], grp[i + 1]
-                        if axis == "row":
-                            marks.append((a_.right, min(a_.top, b_.top), b_.left, max(a_.bottom, b_.bottom)))
-                        else:
-                            marks.append((min(a_.left, b_.left), a_.bottom, max(a_.right, b_.right), b_.top))
-                    iss = Issue(
-                        sl.no, "Spacing",
-                        f"Uneven gaps in a {axis} of {len(grp)} shapes "
-                        f"({', '.join(f'{g:.0f}' for g in gaps)}pt).",
-                        [s.id for s in grp], _bbox_union(grp), True,
-                        dict(op="distribute", axis=axis, ids=[s.id for s in grp]))
-                    iss.marks = [[round(v, 1) for v in m] + [round(g, 0)] for m, g in zip(marks, gaps)]
-                    out.append(iss)
+        for axis, grp, gaps in row_col_groups(els):
+            if max(gaps) - min(gaps) > cfg.gap_tol:
+                marks = gap_marks(axis, grp)   # the gaps themselves, so a reviewer can see which one is off
+                iss = Issue(
+                    sl.no, "Spacing",
+                    f"Uneven gaps in a {axis} of {len(grp)} shapes "
+                    f"({', '.join(f'{g:.0f}' for g in gaps)}pt).",
+                    [s.id for s in grp], _bbox_union(grp), True,
+                    dict(op="distribute", axis=axis, ids=[s.id for s in grp]))
+                iss.marks = [[round(v, 1) for v in m] + [round(g, 0)] for m, g in zip(marks, gaps)]
+                out.append(iss)
         # empty band
         if els:
             srt = sorted(els, key=lambda s: s.top)
