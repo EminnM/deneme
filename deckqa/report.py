@@ -96,7 +96,7 @@ def describe_fix(i):
     n = len(f.get("ids", [])) or 1
     return {
         "align": lambda: f"Moved {n} shape(s) so their {f.get('edge')} edge sits on one line ({f.get('target', 0):.0f}pt).",
-        "place": lambda: "Moved the icon to match where it sits in the sibling panels / the panel centre.",
+        "place": lambda: "Moved it to match where the same element sits in the sibling panels (or the panel centre).",
         "resize": lambda: "Resized the shape to match its same-size peers.",
         "distribute": lambda: f"Re-spaced {n} shapes evenly along the {f.get('axis')}.",
         "fit": lambda: "Shrank the text, widened or grew the box so the text fits.",
