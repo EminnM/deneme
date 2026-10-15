@@ -67,7 +67,8 @@ def build(path):
         y2 = 206 if i == 1 else 205                                    # arrow 2 is ~1.9 degrees off
         c = s.shapes.add_connector(MSO_CONNECTOR.STRAIGHT, Pt(xs[i] + 202), Pt(205), Pt(xs[i + 1] - 2), Pt(y2))
     tb(s.shapes, 36, 470, 700, 16, "Source: programme team analysis", 9)               # 9pt vs 10pt minimum
-    truth += [(3, "Spacing", "last gap 37 vs 30"), (3, "Lines and arrows", "arrow 1.9 degrees"),
+    rect(s.shapes, 840, 440, 56, 30, RGBColor(0xD8, 0xD8, 0xD8))                      # faint grey leftover box nobody noticed
+    truth += [(3, "Leftover graphics", "faint grey box"), (3, "Spacing", "last gap 37 vs 30"), (3, "Lines and arrows", "arrow 1.9 degrees"),
               (3, "Consistency", "Arial box"), (3, "Readability", "9pt footnote")]
 
     # ---- 4: KPI tiles, title squeezed
