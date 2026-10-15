@@ -451,12 +451,21 @@ def spacing(deck, cfg):
                 if max(cross) - min(cross) > 0.35 * span:
                     continue
                 if max(gaps) - min(gaps) > cfg.gap_tol:
-                    out.append(Issue(
+                    marks = []   # the gaps themselves, so a reviewer can see which one is off
+                    for i in range(len(grp) - 1):
+                        a_, b_ = grp[i], grp[i + 1]
+                        if axis == "row":
+                            marks.append((a_.right, min(a_.top, b_.top), b_.left, max(a_.bottom, b_.bottom)))
+                        else:
+                            marks.append((min(a_.left, b_.left), a_.bottom, max(a_.right, b_.right), b_.top))
+                    iss = Issue(
                         sl.no, "Spacing",
                         f"Uneven gaps in a {axis} of {len(grp)} shapes "
                         f"({', '.join(f'{g:.0f}' for g in gaps)}pt).",
                         [s.id for s in grp], _bbox_union(grp), True,
-                        dict(op="distribute", axis=axis, ids=[s.id for s in grp])))
+                        dict(op="distribute", axis=axis, ids=[s.id for s in grp]))
+                    iss.marks = [[round(v, 1) for v in m] + [round(g, 0)] for m, g in zip(marks, gaps)]
+                    out.append(iss)
         # empty band
         if els:
             srt = sorted(els, key=lambda s: s.top)

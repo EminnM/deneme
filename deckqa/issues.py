@@ -11,7 +11,8 @@ class Issue:
     fixable: bool = False
     fix: dict = None                             # machine-readable fix instruction
     status: str = "open"                         # open | fixed
+    marks: list = None                           # extra rectangles to draw (e.g. the gaps themselves)
 
     def to_dict(self):
         return dict(slide=self.slide, category=self.category, message=self.message,
-                    ids=self.ids, bbox=self.bbox, fixable=self.fixable, status=self.status)
+                    ids=self.ids, bbox=self.bbox, fixable=self.fixable, status=self.status, marks=self.marks)
