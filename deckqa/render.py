@@ -3,7 +3,7 @@ import glob, os, subprocess, tempfile
 from PIL import Image, ImageDraw
 
 
-def render(pptx, issues, deck, outdir, dpi=80):
+def render(pptx, issues, deck, outdir, dpi=80, annotate=True):
     os.makedirs(outdir, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
         subprocess.run(["soffice", "--headless", "--convert-to", "pdf", "--outdir", tmp, pptx],
@@ -15,7 +15,7 @@ def render(pptx, issues, deck, outdir, dpi=80):
     for path in sorted(glob.glob(os.path.join(outdir, "slide-*.png"))):
         no = int(os.path.basename(path)[6:-4].lstrip('0') or 0)
         result[no] = path
-        mine = [i for i in issues if i.slide == no and i.bbox]
+        mine = [i for i in issues if i.slide == no and i.bbox] if annotate else []
         if not mine:
             continue
         im = Image.open(path).convert("RGB")

@@ -87,6 +87,29 @@ def markdown(deck, before, after=None, title="Deck QA report"):
     return "\n".join(out) + "\n"
 
 
+def describe_fix(i):
+    """One plain-English line saying what the auto-fix did (or would do) for this issue."""
+    f = i.fix or {}
+    op = f.get("op")
+    n = len(f.get("ids", [])) or 1
+    return {
+        "align": lambda: f"Moved {n} shape(s) so their {f.get('edge')} edge sits on one line ({f.get('target', 0):.0f}pt).",
+        "place": lambda: "Moved the icon to match where it sits in the sibling panels / the panel centre.",
+        "resize": lambda: "Resized the shape to match its same-size peers.",
+        "distribute": lambda: f"Re-spaced {n} shapes evenly along the {f.get('axis')}.",
+        "fit": lambda: "Shrank the text, widened or grew the box so the text fits.",
+        "title_fit": lambda: "Shrank the title until it fits on two lines (not below 20pt).",
+        "min_font": lambda: "Raised the text to the minimum readable size (grew the box if needed).",
+        "remove": lambda: "Deleted the empty/leftover shape.",
+        "font": lambda: "Set the font back to the deck/theme font.",
+        "title_size": lambda: f"Set the title to {f.get('size', 0):g}pt like the other slides.",
+        "title_pos": lambda: "Moved the title to the position used on the other slides.",
+        "straighten": lambda: "Straightened the line.",
+        "add_number": lambda: "Added a page number matching the other slides.",
+        "clamp": lambda: "Trimmed the text box so it stays inside its panel.",
+    }.get(op, lambda: "")()
+
+
 def _b64(path):
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode()
