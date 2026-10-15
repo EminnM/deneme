@@ -32,7 +32,7 @@ def markdown(deck, before, after=None, title="Deck QA report"):
         if i.slide != cur:
             cur = i.slide
             out.append(f"### Slide {cur}")
-        tag = "auto-fixable" if i.fixable else "manual"
+        tag = ("auto-fix could not resolve" if i.fixable else "manual") if after is not None else ("auto-fixable" if i.fixable else "manual")
         out.append(f"- **{i.category}** ({tag}): {i.message}")
     if not todo:
         out.append("Nothing found.")

@@ -2,6 +2,7 @@ import math
 from collections import Counter, defaultdict
 from statistics import median
 
+from pptx.enum.shapes import PP_PLACEHOLDER
 from pptx.enum.text import MSO_AUTO_SIZE
 
 from .issues import Issue
@@ -25,7 +26,7 @@ def _clusters(vals, tol):
     vals = sorted(vals, key=lambda v: v[0])
     out, cur = [], [vals[0]] if vals else []
     for v in vals[1:]:
-        if v[0] - cur[-1][0] <= tol:
+        if v[0] - cur[0][0] <= tol:
             cur.append(v)
         else:
             out.append(cur)
@@ -226,6 +227,9 @@ def _grey_or_black(rgb):
     return max(r, g, b) - min(r, g, b) <= 14
 
 
+_AUTO_PH = (PP_PLACEHOLDER.FOOTER, PP_PLACEHOLDER.DATE, PP_PLACEHOLDER.SLIDE_NUMBER)
+
+
 def leftovers(deck, cfg):
     out = []
     for sl in deck.slides:
@@ -237,6 +241,8 @@ def leftovers(deck, cfg):
                                  [e.id], e.bbox, True, dict(op="remove", id=e.id)))
                 continue
             if e.kind == "shape" and not e.text.strip():
+                if e.is_placeholder and e.ph_type in _AUTO_PH:
+                    continue  # footer/date/number placeholders are empty by design
                 if e.is_placeholder:
                     out.append(Issue(sl.no, "Leftover graphics", f"Empty placeholder '{e.name}'.",
                                      [e.id], e.bbox, True, dict(op="remove", id=e.id)))
@@ -251,41 +257,49 @@ def leftovers(deck, cfg):
 
 
 # -------------------------------------------------------------- 8 Consistency
+
 def consistency(deck, cfg):
     out = []
     # fonts
     fonts = Counter(f for sl in deck.slides for e in sl.els for f in e.fonts)
+    fonts["<theme>"] += sum(e.implicit_runs for sl in deck.slides for e in sl.els)
     if fonts:
         dom = fonts.most_common(1)[0][0]
+        label = "the theme font" if dom == "<theme>" else dom
         for sl in deck.slides:
             for e in sl.els:
                 odd = sorted({f for f in e.fonts if f != dom})
                 if odd:
                     out.append(Issue(sl.no, "Consistency",
-                                     f"Font {', '.join(odd)} differs from the deck font {dom}.",
-                                     [e.id], e.bbox, True, dict(op="font", id=e.id, font=dom)))
-    # titles: size and position vs the deck's most common
-    ts = [(sl, e) for sl in deck.slides for e in sl.els if e.is_title and e.kind == "text"]
-    if len(ts) >= 3:
-        sizes = Counter(e.size for _, e in ts)
-        dom_size = sizes.most_common(1)[0][0]
-        pos = Counter((round(e.left), round(e.top)) for _, e in ts)
-        dom_pos = pos.most_common(1)[0][0]
+                                     f"Font {', '.join(odd)} differs from {label}.",
+                                     [e.id], e.bbox, True,
+                                     dict(op="font", id=e.id, font=None if dom == "<theme>" else dom)))
+    # titles: size and position vs the most common among slides using the SAME layout
+    by_layout = defaultdict(list)
+    for sl in deck.slides:
+        for e in sl.els:
+            if e.is_title and e.kind == "text":
+                by_layout[sl.layout].append((sl, e))
+    for layout, ts in by_layout.items():
+        if len(ts) < 3:
+            continue
+        dom_size = Counter(e.size for _, e in ts).most_common(1)[0][0]
+        dom_pos = Counter((round(e.left), round(e.top)) for _, e in ts).most_common(1)[0][0]
         for sl, e in ts:
             # a title already shrunk to fit its length is a Titles matter, not inconsistency
             shrunk = e.size < dom_size and measure(e, cfg, dom_size)["lines"] > cfg.title_max_lines
             if e.size != dom_size and not shrunk:
                 out.append(Issue(sl.no, "Consistency",
-                                 f"Title is {e.size:g}pt; other slides use {dom_size:g}pt.",
+                                 f"Title is {e.size:g}pt; other '{layout}' slides use {dom_size:g}pt.",
                                  [e.id], e.bbox, True, dict(op="title_size", id=e.id, size=dom_size)))
             if max(abs(e.left - dom_pos[0]), abs(e.top - dom_pos[1])) > cfg.pos_tol:
                 out.append(Issue(sl.no, "Consistency",
-                                 f"Title position ({e.left:.0f},{e.top:.0f}) differs from other slides {dom_pos}.",
+                                 f"Title position ({e.left:.0f},{e.top:.0f}) differs from other '{layout}' slides {dom_pos}.",
                                  [e.id], e.bbox, True, dict(op="title_pos", id=e.id, pos=dom_pos)))
     # page numbers: present on all or none (title slide exempt)
     body = deck.slides[1:] if len(deck.slides) > 2 else deck.slides
     have = [sl for sl in body if any(e.is_number for e in sl.els)]
-    if have and len(have) < len(body):
+    if have and len(have) < len(body) and len(have) >= len(body) / 2:
         ref = next(e for e in have[0].els if e.is_number)
         for sl in body:
             if sl not in have:

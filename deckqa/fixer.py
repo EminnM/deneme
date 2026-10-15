@@ -12,6 +12,13 @@ def _by_id(slide):
     return {sh.shape_id: sh for sh in slide.shapes}
 
 
+def _pin(shape):
+    """Write the full inherited geometry before moving; python-pptx otherwise leaves
+    ext=0 on placeholders that inherit position from the layout and the box collapses."""
+    l, t, w, h = shape.left, shape.top, shape.width, shape.height
+    shape.left, shape.top, shape.width, shape.height = l, t, w, h
+
+
 def _set_size(shape, size):
     for p in shape.text_frame.paragraphs:
         for r in p.runs:
@@ -85,12 +92,14 @@ def apply(deck, issues, cfg: Config):
                     m = measure(e, cfg, max(size, floor))
                     new_h = m["height"]
                     if e.top + new_h <= deck.height:
+                        _pin(sh)
                         _set_size(sh, max(size, floor))
                         sh.height = Emu(int(new_h * EMU))
                         ok = True
         elif op == "title_pos":
             sh = shapes.get(f["id"])
             if sh is not None:
+                _pin(sh)
                 sh.left, sh.top = Emu(int(f["pos"][0] * EMU)), Emu(int(f["pos"][1] * EMU))
                 ok = True
         elif op == "align":
@@ -100,6 +109,7 @@ def apply(deck, issues, cfg: Config):
                 sh = shapes.get(sid)
                 if sh is None or (iss.slide, sid, axis) in moved:
                     continue
+                _pin(sh)
                 w, h = sh.width / EMU, sh.height / EMU
                 if edge == "left":
                     sh.left = Emu(int(target * EMU))
@@ -118,6 +128,8 @@ def apply(deck, issues, cfg: Config):
             if len(grp) >= 3:
                 row = f["axis"] == "row"
                 key = (lambda s: s.left) if row else (lambda s: s.top)
+                for s_ in grp:
+                    _pin(s_)
                 grp.sort(key=key)
                 size = (lambda s: s.width) if row else (lambda s: s.height)
                 start, end = key(grp[0]), key(grp[-1]) + size(grp[-1])

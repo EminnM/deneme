@@ -24,9 +24,11 @@ class El:
     is_title: bool = False
     is_placeholder: bool = False
     is_number: bool = False
+    ph_type: object = None
     text: str = ""
     sizes: list = field(default_factory=list)
     fonts: list = field(default_factory=list)
+    implicit_runs: int = 0   # runs that inherit the theme font
     bold: bool = False
     fill: Optional[tuple] = None
     line: Optional[tuple] = None   # (x1, y1, x2, y2) for connectors
@@ -87,6 +89,7 @@ def load_element(shape, slide_no, cfg, slide_h):
         kind = "shape"
     el = El(shape, slide_no, shape.shape_id, shape.name, l / EMU, t / EMU, w / EMU, h / EMU, kind)
     el.is_placeholder = is_ph
+    el.ph_type = ph_type
     el.is_title = is_ph and ph_type in TITLE_TYPES
     text = shape.text_frame.text if getattr(shape, "has_text_frame", False) else ""
     el.text = text
@@ -97,6 +100,8 @@ def load_element(shape, slide_no, cfg, slide_h):
             el.sizes.append(r.font.size.pt)
         if r.font.name:
             el.fonts.append(r.font.name)
+        elif r.text.strip():
+            el.implicit_runs += 1
         if r.font.bold:
             el.bold = True
     if el.kind == "text" and not el.sizes:
@@ -115,6 +120,7 @@ class Slide:
     no: int
     slide: object
     els: list
+    layout: str = ""
 
 
 @dataclass
@@ -135,5 +141,5 @@ def build(prs, cfg):
     slides = []
     for i, s in enumerate(prs.slides, 1):
         els = [e for e in (load_element(sh, i, cfg, H) for sh in s.shapes) if e]
-        slides.append(Slide(i, s, els))
+        slides.append(Slide(i, s, els, s.slide_layout.name))
     return Deck(prs, W, H, slides)
