@@ -62,13 +62,35 @@ def measure(el, cfg, size=None):
                 text_w=min(text_w, width), ml=ml, mr=mr, mt=mt, mb=mb)
 
 
+def anchor_of(el):
+    """Vertical anchor, inherited from the layout/master placeholder when not set on the shape."""
+    sh = el.shape
+    for _ in range(4):
+        try:
+            a = sh.text_frame.vertical_anchor
+        except Exception:
+            return None
+        if a is not None:
+            return a
+        sh = getattr(sh, "_base_placeholder", None)
+        if sh is None:
+            return None
+    return None
+
+
+def overflow_bottom(el, cfg, size=None):
+    """Where the text bottom lands relative to the box top (top margin + text height)."""
+    m = measure(el, cfg, size)
+    return m["mt"] + (m["height"] - m["mt"] - m["mb"])
+
+
 def text_rect(el, cfg, size=None):
     """Absolute rectangle (l, t, r, b) the text ink is expected to occupy (alignment/anchor aware)."""
     from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
     m = measure(el, cfg, size)
     tf = el.shape.text_frame
     ink_h = m["height"] - m["mt"] - m["mb"]
-    anchor = tf.vertical_anchor
+    anchor = anchor_of(el)
     if anchor == MSO_ANCHOR.MIDDLE:
         top = el.top + (el.height - ink_h) / 2
     elif anchor == MSO_ANCHOR.BOTTOM:

@@ -23,11 +23,20 @@ def main(argv=None):
     after = None
     final_path = a.deck
     if a.fix:
-        fixer.apply(deck, before, cfg)
-        deck.prs.save(a.fix)
+        # fixes interact (moving one shape changes another's gaps), so repeat until nothing more is fixable
+        pending, seen = before, {(i.slide, i.category, i.message) for i in before}
+        for _ in range(4):
+            n = fixer.apply(deck, pending, cfg)
+            deck.prs.save(a.fix)
+            deck = model.load(a.fix, cfg)
+            after = checks.run_all(deck, cfg)
+            pending = [i for i in after if i.fixable]
+            if not n or not pending:
+                break
+            fresh = [i for i in pending if (i.slide, i.category, i.message) not in seen]
+            seen.update((i.slide, i.category, i.message) for i in fresh)
+            before.extend(fresh)   # uncovered by earlier fixes; marked when fixed on the next pass
         final_path = a.fix
-        deck = model.load(a.fix, cfg)
-        after = checks.run_all(deck, cfg)
     md = report.markdown(deck, before, after)
     if a.report:
         open(a.report, "w").write(md)

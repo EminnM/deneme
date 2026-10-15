@@ -6,7 +6,7 @@ from pptx.enum.shapes import PP_PLACEHOLDER
 from pptx.enum.text import MSO_AUTO_SIZE
 
 from .issues import Issue
-from .textfit import measure, text_rect
+from .textfit import measure, text_rect, overflow_bottom
 
 
 def _bbox_union(els):
@@ -16,8 +16,9 @@ def _bbox_union(els):
 
 def _layout_els(els, deck):
     """Boxes that take part in layout checks (no lines, no numbers, no full-slide backgrounds)."""
-    return [e for e in els if e.kind in ("text", "picture", "shape", "group")
+    return [e for e in els if e.kind in ("text", "picture", "frame", "shape", "group")
             and not e.is_number
+            and not (e.is_placeholder and e.kind == "shape" and not e.text.strip())   # empty placeholders are not content
             and not (e.width > deck.width * 0.95 and e.height > deck.height * 0.95)]
 
 
@@ -89,33 +90,68 @@ def _outliers(comp, key, cfg, limit):
 
 # ---------------------------------------------------------------- 1 Alignment
 def _peer_alignment(sl, deck, cfg, els, edge_sets, out, skip=frozenset()):
-    """Same-size shapes laid out as a row/column: flag the ones off the shared line, any distance."""
+    """Same-size shapes laid out as a row/column: a shape that stands alone off the line shared by
+    two or more of its peers is flagged, whatever the distance (up to 1.5x its size)."""
     for ps in _peer_sets([e for e in els if e.kind != "line"], cfg.peer_size_tol):
-        # rows: side by side, close vertically
-        rows = _components(ps, lambda a, b: (min(a.right, b.right) - max(a.left, b.left) <= 0.5)
-                           and abs(a.top - b.top) < 1.5 * max(a.height, b.height))
-        for comp in rows:
-            target, odd = _outliers(comp, lambda e: e.top, cfg, 1.5 * max(e.height for e in comp))
-            odd = [e for e in odd if e.id not in skip]
-            if odd:
-                edge_sets.append((("top", "bottom"), frozenset(e.id for e in comp)))
+        for axis in ("row", "col"):
+            key = (lambda e: e.top) if axis == "row" else (lambda e: e.left)
+            span = max(e.height for e in ps) if axis == "row" else max(e.width for e in ps)
+            buckets = [[e for _, e in c] for c in _clusters([(key(e), e) for e in ps], cfg.peer_pos_tol)]
+            anchors = [b for b in buckets if len(b) >= 2]
+            if not anchors:
+                continue
+
+            def beside(e, grp):   # side by side (row) / stacked (col): no overlap along the layout axis
+                for o in grp:
+                    if axis == "row" and min(e.right, o.right) - max(e.left, o.left) > 0.5:
+                        return False
+                    if axis == "col" and min(e.bottom, o.bottom) - max(e.top, o.top) > 0.5:
+                        return False
+                return True
+            groups = defaultdict(list)
+            for b in buckets:
+                if len(b) != 1 or b[0].id in skip:
+                    continue
+                e = b[0]
+                near = [a for a in anchors if 0 < abs(key(e) - median(key(x) for x in a)) <= 1.5 * span and beside(e, a)]
+                if near:
+                    best = min(near, key=lambda a: abs(key(e) - median(key(x) for x in a)))
+                    groups[id(best)].append((e, best))
+            for items in groups.values():
+                best = items[0][1]
+                target = median(key(x) for x in best)
+                odd = [e for e, _ in items if abs(key(e) - target) > cfg.align_eps]
+                if not odd:
+                    continue
+                edge = "top" if axis == "row" else "left"
+                edge_sets.append(((("top", "bottom") if axis == "row" else ("left", "right", "center")),
+                                  frozenset(x.id for x in best + odd)))
+                word = "row" if axis == "row" else "column"
                 out.append(Issue(sl.no, "Alignment",
-                                 f"{len(odd)} of {len(comp)} same-size shapes in a row are off the shared top line "
-                                 f"({', '.join(f'{e.top - target:+.0f}pt' for e in odd)}).",
+                                 f"{len(odd)} of {len(best) + len(odd)} same-size shapes in a {word} are off the shared "
+                                 f"{edge} line ({', '.join(f'{key(e) - target:+.0f}pt' for e in odd)}).",
                                  [e.id for e in odd], _bbox_union(odd), True,
-                                 dict(op="align", edge="top", target=target, ids=[e.id for e in odd])))
-        cols = _components(ps, lambda a, b: (min(a.bottom, b.bottom) - max(a.top, b.top) <= 0.5)
-                           and abs(a.left - b.left) < 1.5 * max(a.width, b.width))
-        for comp in cols:
-            target, odd = _outliers(comp, lambda e: e.left, cfg, 1.5 * max(e.width for e in comp))
-            odd = [e for e in odd if e.id not in skip]
-            if odd:
-                edge_sets.append((("left", "right", "center"), frozenset(e.id for e in comp)))
-                out.append(Issue(sl.no, "Alignment",
-                                 f"{len(odd)} of {len(comp)} same-size shapes in a column are off the shared left line "
-                                 f"({', '.join(f'{e.left - target:+.0f}pt' for e in odd)}).",
-                                 [e.id for e in odd], _bbox_union(odd), True,
-                                 dict(op="align", edge="left", target=target, ids=[e.id for e in odd])))
+                                 dict(op="align", edge=edge, target=target, ids=[e.id for e in odd])))
+
+
+def _size_mismatch(sl, cfg, els, out):
+    """Cards/pictures that are almost, but not exactly, the size of their peers."""
+    solid = [e for e in els if e.kind in ("picture", "frame") or (e.kind == "shape" and e.fill is not None)]
+    for ps in _peer_sets(solid, cfg.peer_size_tol):
+        for dim, label in (("width", "wide"), ("height", "tall")):
+            vals = [(getattr(e, dim), e) for e in ps]
+            cl = max(_clusters(vals, cfg.peer_pos_tol), key=len)
+            if len(cl) < max(2, math.ceil(len(ps) / 2)):
+                continue
+            target = median(v for v, _ in cl)
+            inn = {id(e) for _, e in cl}
+            for v, e in vals:
+                if id(e) not in inn and abs(v - target) > cfg.align_eps:
+                    out.append(Issue(sl.no, "Alignment",
+                                     f"'{e.name}' is {abs(v - target):.0f}pt too {'wide' if (dim == 'width' and v > target) else 'narrow' if dim == 'width' else 'tall' if v > target else 'short'}"
+                                     f" compared with its {len(ps) - 1} same-size peers.",
+                                     [e.id], e.bbox, e.kind != "picture" and True,
+                                     dict(op="resize", id=e.id, **{dim: target})))
 
 
 def _icon_ids(sl, cfg):
@@ -212,6 +248,8 @@ def alignment(deck, cfg):
         _icon_alignment(sl, deck, cfg, icon_issues)
         icon_ids = {i for iss in icon_issues for i in iss.ids}
         _peer_alignment(sl, deck, cfg, leaves, edge_sets, out, icon_ids)
+        _size_mismatch(sl, cfg, leaves, out)
+        near = []   # (edge, spread, issue) collected, then thinned: a repeated offset is a design system
         for parent, kids in sl.siblings().items():
             els = [e for e in _layout_els(kids, deck) if not e.is_title]
             seen = set()  # same shapes already reported on another edge -> don't repeat
@@ -235,12 +273,14 @@ def alignment(deck, cfg):
                     if key in seen or any(edge in es and key <= ids for es, ids in edge_sets):
                         continue
                     seen.add(key)
-                    out.append(Issue(
+                    near.append(((edge, round(max(vs) - min(vs), 1), len(members)), Issue(
                         sl.no, "Alignment",
                         f"{edge} edges of {len(members)} shapes are off by up to "
                         f"{max(vs) - min(vs):.1f}pt (should share one {edge} line).",
                         [e.id for e in members], _bbox_union(members), True,
-                        dict(op="align", edge=edge, target=target, ids=[e.id for e in members])))
+                        dict(op="align", edge=edge, target=target, ids=[e.id for e in members]))))
+        sig = Counter(k for k, _ in near)
+        out.extend(i for k, i in near if sig[k] < 3)
         _icon_alignment(sl, deck, cfg, out)
     return out
 
@@ -263,7 +303,7 @@ def overlaps(deck, cfg):
         by_id = {e.id: e for e in sl.all}
         items = []
         for e in sl.leaves:
-            if e.is_title or e.is_number or e.kind not in ("text", "picture"):
+            if e.is_title or e.is_number or e.kind not in ("text", "picture", "frame"):
                 continue
             rect = text_rect(e, cfg) if e.kind == "text" else e.bbox
             items.append((e, rect))
@@ -293,6 +333,9 @@ def overlaps(deck, cfg):
                 both_text = a.kind == "text" and b.kind == "text"
                 if both_text:
                     if min(w, h) < 2.0 or area < 30:
+                        continue
+                elif "frame" in (a.kind, b.kind):
+                    if min(w, h) < 6 or area < 300:     # tables/charts: even a thin overlap is a defect
                         continue
                 elif share < 0.3:
                     continue
@@ -325,6 +368,11 @@ def spacing(deck, cfg):
                         for i in range(len(grp) - 1)]
                 if any(g < -0.5 for g in gaps):
                     continue  # overlapping layout, not a spacing row
+                # members must really line up as a row/column, or "distributing" them would scatter unrelated shapes
+                cross = [(g.cy if axis == "row" else g.cx) for g in grp]
+                span = max((g.height if axis == "row" else g.width) for g in grp)
+                if max(cross) - min(cross) > 0.35 * span:
+                    continue
                 if max(gaps) - min(gaps) > cfg.gap_tol:
                     out.append(Issue(
                         sl.no, "Spacing",
@@ -359,9 +407,9 @@ def text_fit(deck, cfg):
                 out.append(Issue(sl.no, "Text fit", "A word is wider than its box and will split mid-word.",
                                  [e.id], e.bbox, True, dict(op="fit", id=e.id)))
             auto = tf.auto_size in (MSO_AUTO_SIZE.SHAPE_TO_FIT_TEXT, MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE)
-            if m["height"] > e.height + 1.0 and not auto and e.height >= 1.0:  # height 0 = auto-growing box
+            if overflow_bottom(e, cfg) > e.height + 1.0 and not auto and e.height >= 1.0:  # height 0 = auto-growing box
                 out.append(Issue(sl.no, "Text fit",
-                                 f"Text needs ~{m['height']:.0f}pt but box is {e.height:.0f}pt tall (spills out).",
+                                 f"Text needs ~{overflow_bottom(e, cfg):.0f}pt but box is {e.height:.0f}pt tall (spills out).",
                                  [e.id], e.bbox, True, dict(op="fit", id=e.id)))
             elif m["orphan"]:
                 out.append(Issue(sl.no, "Text fit", "Last line has a single hanging word.",
@@ -434,13 +482,18 @@ def lines_arrows(deck, cfg):
             if 0.2 < off <= cfg.angle_tol:
                 out.append(Issue(sl.no, "Lines and arrows", f"Line is {off:.1f} degrees off the horizontal/vertical (crooked).",
                                  [ln.id], ln.bbox, True, dict(op="straighten", id=ln.id)))
+            hit = []
             for t in texts:
                 r = (t.left + 2, t.top + 2, t.right - 2, t.bottom - 2)
                 if _inside(x1, y1, t.bbox, 2) or _inside(x2, y2, t.bbox, 2):
                     continue  # attached to the box, not crossing it
                 if _seg_hits_rect(x1, y1, x2, y2, r):
-                    out.append(Issue(sl.no, "Lines and arrows", "A line crosses through a text box.",
-                                     [ln.id, t.id], _bbox_union([ln, t])))
+                    hit.append(t)
+            if hit:
+                names = ", ".join(f"'{t.text.strip()[:18]}'" for t in hit[:3])
+                out.append(Issue(sl.no, "Lines and arrows",
+                                 f"A line crosses through {len(hit)} text box(es): {names}{'...' if len(hit) > 3 else ''}.",
+                                 [ln.id] + [t.id for t in hit], _bbox_union([ln] + hit)))
     return out
 
 
@@ -548,7 +601,31 @@ def consistency(deck, cfg):
                                      f"Font {', '.join(odd)} differs from {label}.",
                                      [e.id], e.bbox, True,
                                      dict(op="font", id=e.id, font=None if dom == "<theme>" else dom)))
-    # titles: size and position vs the most common among slides using the SAME layout
+    # body text size: same-size text boxes (e.g. the columns of one slide) should use the same size
+    for sl in deck.slides:
+        texts = [e for e in sl.leaves if e.kind == "text" and not e.is_title and not e.is_number and e.sizes]
+        for ps in _peer_sets(texts, cfg.peer_size_tol):
+            cl = max(_clusters([(e.size, e) for e in ps], 0.5), key=len)
+            if len(cl) < max(2, math.ceil(len(ps) / 2)):
+                continue
+            tgt = median(v for v, _ in cl)
+            for e in ps:
+                if abs(e.size - tgt) >= 1.0:
+                    out.append(Issue(sl.no, "Consistency",
+                                     f"Text is {e.size:g}pt but {len(cl)} same-size boxes on this slide use {tgt:g}pt.",
+                                     [e.id], e.bbox, False))
+    # title size: compare across all content slides (title-slide layouts excluded)
+    content_titles = [(sl, e) for sl in deck.slides for e in sl.leaves if e.is_title and e.kind == "text"
+                      and not any(x.ph_type == PP_PLACEHOLDER.CENTER_TITLE for x in sl.leaves)]
+    if len(content_titles) >= 3:
+        dom_size = Counter(e.size for _, e in content_titles).most_common(1)[0][0]
+        for sl, e in content_titles:
+            shrunk = e.size < dom_size and measure(e, cfg, dom_size)["lines"] > cfg.title_max_lines
+            if e.size != dom_size and not shrunk:
+                out.append(Issue(sl.no, "Consistency",
+                                 f"Title is {e.size:g}pt; most other slides use {dom_size:g}pt.",
+                                 [e.id], e.bbox, True, dict(op="title_size", id=e.id, size=dom_size)))
+    # title position: only against slides sharing the same layout
     by_layout = defaultdict(list)
     for sl in deck.slides:
         for e in sl.leaves:
@@ -557,15 +634,8 @@ def consistency(deck, cfg):
     for layout, ts in by_layout.items():
         if len(ts) < 3:
             continue
-        dom_size = Counter(e.size for _, e in ts).most_common(1)[0][0]
         dom_pos = Counter((round(e.left), round(e.top)) for _, e in ts).most_common(1)[0][0]
         for sl, e in ts:
-            # a title already shrunk to fit its length is a Titles matter, not inconsistency
-            shrunk = e.size < dom_size and measure(e, cfg, dom_size)["lines"] > cfg.title_max_lines
-            if e.size != dom_size and not shrunk:
-                out.append(Issue(sl.no, "Consistency",
-                                 f"Title is {e.size:g}pt; other '{layout}' slides use {dom_size:g}pt.",
-                                 [e.id], e.bbox, True, dict(op="title_size", id=e.id, size=dom_size)))
             if max(abs(e.left - dom_pos[0]), abs(e.top - dom_pos[1])) > cfg.pos_tol:
                 out.append(Issue(sl.no, "Consistency",
                                  f"Title position ({e.left:.0f},{e.top:.0f}) differs from other '{layout}' slides {dom_pos}.",

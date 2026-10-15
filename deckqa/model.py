@@ -21,7 +21,7 @@ class El:
     top: float
     width: float
     height: float
-    kind: str                      # text | picture | line | shape | group | other
+    kind: str                      # text | picture | frame (table/chart) | line | shape | group | other
     parent: Optional[int] = None   # shape id of containing group (None = slide level)
     xf: tuple = IDENT              # local -> absolute transform of the shape's own coordinate space
     is_title: bool = False
@@ -96,6 +96,8 @@ def load_element(shape, slide_no, cfg, slide_h, xf=IDENT, parent=None):
         kind = "line"
     elif st == MSO_SHAPE_TYPE.GROUP:
         kind = "group"
+    elif st in (MSO_SHAPE_TYPE.TABLE, MSO_SHAPE_TYPE.CHART, MSO_SHAPE_TYPE.EMBEDDED_OLE_OBJECT):
+        kind = "frame"
     elif st == MSO_SHAPE_TYPE.PICTURE or ph_type == PP_PLACEHOLDER.PICTURE:
         kind = "picture"
     elif getattr(shape, "has_text_frame", False) and shape.text_frame.text.strip():
