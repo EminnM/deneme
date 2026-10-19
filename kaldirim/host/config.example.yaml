@@ -1,0 +1,41 @@
+# Copy to config.yaml and edit. Never commit config.yaml (it is gitignored).
+
+stream_url: "http://192.168.1.50/stream"   # Deneyap Kart /stream endpoint
+timezone: "Europe/Istanbul"
+
+# Where things are written. Clips stay local; nothing here is published.
+data_dir: "./data"            # events.sqlite, clips/, exports/, site/
+
+model:
+  weights: "yolov8n.pt"       # auto-downloaded by ultralytics on first run
+  imgsz: 960                  # raise to 1280 if riders are small in frame
+  conf: 0.35
+  classes: [3]                # COCO: 3 = motorcycle. Add 1 for bicycles if wanted.
+  tracker: "bytetrack.yaml"
+
+# Counting rule. Use "gate" when the sidewalk view is partial or oblique:
+# a rider is counted once when their ground point crosses the line.
+# Use "zone" when you have a clean wide view of the pavement.
+count:
+  mode: "gate"                # "gate" or "zone"
+  gate: [[120, 400], [520, 380]]     # two image points, set with roi_tool.py
+  zone: [[100, 380], [700, 360], [720, 440], [80, 460]]   # polygon, roi_tool.py
+  zone_min_frames: 3          # consecutive in-zone frames before counting (zone mode)
+  cooldown_s: 2.0             # ignore the same track id for this long after a count
+
+# Short clip saved per counted event, for your own records and police reports.
+clip:
+  pre_s: 2.0
+  post_s: 2.0
+  width: 640                  # downscaled; full frames never leave the host anyway
+
+# Nightly post. Dry run until you set it to false.
+post:
+  dry_run: true
+  hour: 22                    # local hour to post the day's numbers
+  site_url: ""                # dashboard link appended to the post, if any
+  x_api:                      # from developer.x.com, app with read+write
+    consumer_key: ""
+    consumer_secret: ""
+    access_token: ""
+    access_token_secret: ""
