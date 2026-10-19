@@ -7,7 +7,7 @@ Host the site folder anywhere static (GitHub Pages, Netlify). It contains number
 from __future__ import annotations
 
 import html
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -75,6 +75,19 @@ def build(cfg: dict) -> Path:
     first = stats.first_day(con) or today.isoformat()
     first_tr = datetime.strptime(first, "%Y-%m-%d").strftime("%d.%m.%Y")
 
+    cmp_html = ""
+    cs = (cfg.get("post") or {}).get("campaign_start") or ""
+    if cs:
+        avg_b, avg_s, nb, ns = stats.before_after(con, date.fromisoformat(cs), today)
+        if avg_b is not None and avg_s is not None:
+            delta = (avg_s - avg_b) / avg_b * 100 if avg_b else 0.0
+            cmp_html = f"""<h2>Paylaşımdan önce ve sonra</h2>
+<div class="tiles">
+<div class="tile"><div class="v">{avg_b:.0f}</div><div class="l">günlük ortalama, paylaşım öncesi ({nb} gün)</div></div>
+<div class="tile"><div class="v">{avg_s:.0f}</div><div class="l">günlük ortalama, paylaşım sonrası ({ns} gün)</div></div>
+<div class="tile"><div class="v">{delta:+.0f}%</div><div class="l">fark · ilk paylaşım {datetime.strptime(cs, '%Y-%m-%d').strftime('%d.%m.%Y')}</div></div>
+</div>"""
+
     rows = "".join(f"<tr><td>{d}</td><td class='n'>{v}</td></tr>" for d, v in reversed(last30))
     hourly_rows = "".join(f"<tr><td>{stats.hour_label(h)}</td><td class='n'>{v}</td></tr>"
                           for h, v in enumerate(today_st.hourly) if v)
@@ -94,6 +107,7 @@ def build(cfg: dict) -> Path:
 <h2>Bugün, saat dilimine göre</h2>
 {bar_svg([f"{h:02d}" for h in range(24)], today_st.hourly, "geçiş", step_labels=3)}
 <details><summary>Tablo</summary><table><tr><th>Saat</th><th>Geçiş</th></tr>{hourly_rows or "<tr><td colspan=2>henüz yok</td></tr>"}</table></details>
+{cmp_html}
 <h2>Son 30 gün</h2>
 {bar_svg([d[5:] for d, _ in last30], [v for _, v in last30], "geçiş", step_labels=5)}
 <details><summary>Tablo</summary><table><tr><th>Gün</th><th>Geçiş</th></tr>{rows}</table></details>

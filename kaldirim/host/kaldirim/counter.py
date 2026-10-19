@@ -33,7 +33,7 @@ class ClipWriter:
 
     def _small(self, frame):
         h, w = frame.shape[:2]
-        if w <= self.width:
+        if not self.width or w <= self.width:
             return frame
         return cv2.resize(frame, (self.width, int(h * self.width / w)))
 

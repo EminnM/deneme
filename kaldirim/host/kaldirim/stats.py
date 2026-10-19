@@ -44,3 +44,26 @@ def first_day(con: sqlite3.Connection) -> str | None:
 
 def hour_label(h: int) -> str:
     return f"{h:02d}:00-{(h + 1) % 24:02d}:00"
+
+
+def before_after(con: sqlite3.Connection, campaign_start: date, until: date) -> tuple[float | None, float | None, int, int]:
+    """Average events per full day before the campaign and since it.
+
+    Returns (avg_before, avg_since, days_before, days_since). The day the camera
+    started is found from the data; a day with no events still counts as a day.
+    """
+    first = first_day(con)
+    if not first:
+        return None, None, 0, 0
+    f = date.fromisoformat(first)
+    before_days = (campaign_start - f).days
+    since_days = (until - campaign_start).days + 1
+    avg_b = avg_s = None
+    if before_days > 0:
+        n = con.execute("SELECT COUNT(*) FROM events WHERE day < ?", (campaign_start.isoformat(),)).fetchone()[0]
+        avg_b = n / before_days
+    if since_days > 0:
+        n = con.execute("SELECT COUNT(*) FROM events WHERE day >= ? AND day <= ?",
+                        (campaign_start.isoformat(), until.isoformat())).fetchone()[0]
+        avg_s = n / since_days
+    return avg_b, avg_s, max(0, before_days), max(0, since_days)

@@ -49,3 +49,11 @@ def test_chart_png(tmp_path):
 def test_bar_svg_has_one_rect_per_value():
     svg = bar_svg(["a", "b", "c"], [1, 0, 3], "x")
     assert svg.count("<rect") == 3 and "<title>c: 3 x</title>" in svg
+
+
+def test_before_after(tmp_path):
+    con = seeded(tmp_path)   # 1 event on 10-17, 50 on 10-18
+    avg_b, avg_s, nb, ns = stats.before_after(con, date(2026, 10, 18), date(2026, 10, 18))
+    assert (nb, ns) == (1, 1) and avg_b == 1 and avg_s == 50
+    avg_b, avg_s, nb, ns = stats.before_after(con, date(2026, 10, 17), date(2026, 10, 18))
+    assert avg_b is None and nb == 0 and avg_s == 25.5 and ns == 2

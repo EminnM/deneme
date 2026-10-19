@@ -60,7 +60,25 @@ Cron, nightly at 22:05:
 X API keys come from developer.x.com (app with read and write). Mark the account as automated in
 its settings.
 
-## 4. Police reports
+## 4. Sharing an image
+
+```
+python -m kaldirim.export_image 123
+```
+
+Writes `data/exports/<clip>_masked.png`: the rider and bike cut out by a segmentation model,
+placed on a flat background, downscaled below plate and face resolution and re-upscaled.
+No signage, no curb, no perspective lines, no metadata. This is the only image form meant
+to leave the host. Never post a raw frame or clip.
+
+## 5. Measuring whether it helps
+
+Set `post.campaign_start` to the date of your first public post. The dashboard then shows the
+daily average before and since, with the day counts. Run the counter for at least two weeks
+before the first post so the "before" number means something, and expect noise from weather
+and school holidays.
+
+## 6. Police reports
 
 ```
 python -m kaldirim.export_report 123          # one event
@@ -68,6 +86,12 @@ python -m kaldirim.export_report 2026-10-18   # a whole day
 ```
 
 Files land in `data/exports/` with a sidecar note. Send the clear cases, not all of them.
+
+Submission is manual by design: the Gereği Yapıldı and EGM Mobil apps have no public API, every
+report is made under your e-Devlet identity and attested by you, and a script hammering them with
+a hundred reports a day gets the account flagged, not the riders fined. A fine needs a readable
+plate, so clips are kept at full stream resolution; switch the firmware to `FRAMESIZE_UXGA` if
+plates are still too small at your distance (lower fps, the gate rule copes).
 
 ## What never leaves the host
 

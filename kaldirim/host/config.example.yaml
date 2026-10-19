@@ -12,6 +12,7 @@ model:
   conf: 0.35
   classes: [3]                # COCO: 3 = motorcycle. Add 1 for bicycles if wanted.
   tracker: "bytetrack.yaml"
+  seg_weights: "yolov8n-seg.pt"  # used by export_image.py only
 
 # Counting rule. Use "gate" when the sidewalk view is partial or oblique:
 # a rider is counted once when their ground point crosses the line.
@@ -27,10 +28,11 @@ count:
 clip:
   pre_s: 2.0
   post_s: 2.0
-  width: 640                  # downscaled; full frames never leave the host anyway
+  width: 0                    # 0 = keep full stream resolution so plates stay readable for police reports
 
 # Nightly post. Dry run until you set it to false.
 post:
+  campaign_start: ""          # YYYY-MM-DD of the first public post; dashboard compares before/after
   dry_run: true
   hour: 22                    # local hour to post the day's numbers
   site_url: ""                # dashboard link appended to the post, if any
