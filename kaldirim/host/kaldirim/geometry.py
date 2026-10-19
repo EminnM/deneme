@@ -99,3 +99,18 @@ class CountRule:
             self._counted_at.pop(t, None)
             self._last_pt.pop(t, None)
             self._streak.pop(t, None)
+
+
+def auto_crop(points: list[Point], frame_w: int, frame_h: int, margin: int) -> tuple[int, int, int, int]:
+    """Smallest frame-aligned box around `points` plus `margin` px, clamped to the frame.
+
+    Returns (x, y, w, h). Running the detector on this crop instead of the full frame keeps
+    small, distant riders at native resolution.
+    """
+    xs = [p[0] for p in points]
+    ys = [p[1] for p in points]
+    x1 = max(0, int(min(xs) - margin))
+    y1 = max(0, int(min(ys) - margin))
+    x2 = min(frame_w, int(max(xs) + margin))
+    y2 = min(frame_h, int(max(ys) + margin))
+    return x1, y1, max(1, x2 - x1), max(1, y2 - y1)

@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 import cv2
 
 from . import config, db
-from .geometry import CountRule, ground_point
+from .geometry import CountRule, auto_crop, ground_point
 
 log = logging.getLogger("kaldirim")
 
@@ -93,6 +93,9 @@ def main() -> None:
     cl = cfg["clip"]
     clips = ClipWriter(Path(cfg["data_dir"], "clips"), cl["pre_s"], cl["post_s"], cl["width"])
 
+    crop_cfg = m.get("crop", "auto")
+    crop = None   # (x, y, w, h) in frame coordinates, resolved on the first frame
+
     cap = open_stream(cfg["stream_url"])
     frames = 0
     last_log = time.time()
@@ -107,13 +110,29 @@ def main() -> None:
         frames += 1
         clips.push(now, frame)
 
-        res = model.track(frame, persist=True, imgsz=m["imgsz"], conf=m["conf"],
+        if crop is None and crop_cfg:
+            fh, fw = frame.shape[:2]
+            if crop_cfg == "auto":
+                pts = c["gate"] if c["mode"] == "gate" else c["zone"]
+                crop = auto_crop([tuple(p) for p in pts], fw, fh, int(m.get("crop_margin", 160)))
+            else:
+                crop = tuple(int(v) for v in crop_cfg)
+            log.info("detector crop x=%d y=%d w=%d h=%d of %dx%d", *crop, fw, fh)
+        if crop:
+            cx, cy, cw, ch = crop
+            view = frame[cy:cy + ch, cx:cx + cw]
+        else:
+            cx = cy = 0
+            view = frame
+
+        res = model.track(view, persist=True, imgsz=m["imgsz"], conf=m["conf"],
                           classes=m["classes"], tracker=m.get("tracker", "bytetrack.yaml"),
                           verbose=False)[0]
         if res.boxes is not None and res.boxes.id is not None:
             ids = res.boxes.id.int().tolist()
             confs = res.boxes.conf.tolist()
             for box, tid, conf in zip(res.boxes.xyxy.tolist(), ids, confs):
+                box = (box[0] + cx, box[1] + cy, box[2] + cx, box[3] + cy)   # back to frame coords
                 pt = ground_point(box)
                 if rule.update(tid, pt, now):
                     when = datetime.now(tz)

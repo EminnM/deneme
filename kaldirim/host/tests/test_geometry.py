@@ -45,3 +45,9 @@ def test_low_fps_crossing_still_detected():
     r = CountRule("gate", gate=[(0, 100), (640, 90)])
     assert r.update(9, (300, 70), 0.0) is False
     assert r.update(9, (320, 130), 0.5) is True
+
+
+def test_auto_crop_clamps_to_frame():
+    from kaldirim.geometry import auto_crop
+    assert auto_crop([(100, 400), (500, 380)], 1600, 1200, 160) == (0, 220, 660, 340)
+    assert auto_crop([(1500, 1100), (1590, 1190)], 1600, 1200, 160) == (1340, 940, 260, 260)

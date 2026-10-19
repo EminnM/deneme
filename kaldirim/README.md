@@ -40,6 +40,16 @@ python -m kaldirim.counter              # runs forever; logs each count
 where riders must pass; a track is counted once when it crosses it. This works at the 2 to 4 fps a
 Raspberry Pi gives. With a clean wide view you can use a *zone* polygon instead.
 
+**High window, far pavement.** From 30 m or more the rider is a few dozen pixels in a full frame.
+Keep the firmware at UXGA (1600x1200) and leave `model.crop: "auto"` on: the detector then runs on
+a tight box around the gate at native resolution rather than on a downscaled whole frame. Check the
+first day's clips to confirm riders are being picked up; if not, lower `conf` to 0.25 before
+anything else.
+
+**After dark.** The OV2640 is weak in low light. Under street lighting it still sees headlights and
+shapes, but expect an undercount in the evening. The before-and-after comparison is still fair as
+long as both periods have the same hours of darkness, so compare within the same season.
+
 **Checking the numbers.** Every count has a clip in `data/clips/`. Review a day's clips before you
 publish the first week, tune `conf`, the gate position and `cooldown_s`, and keep the false-positive
 rate honest. The dashboard's method note tells readers exactly how the count is made.

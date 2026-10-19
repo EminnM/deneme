@@ -23,6 +23,10 @@
 // ---- fill these in ----
 const char *WIFI_SSID = "YOUR_SSID";
 const char *WIFI_PASS = "YOUR_PASSWORD";
+// Frame size. From a high window (30 m+), use UXGA so distant riders keep enough pixels;
+// the host crops the pavement strip and detects on that. Expect roughly 3-6 fps over Wi-Fi.
+// Use FRAMESIZE_SVGA for a closer, lower window where frame rate matters more.
+#define STREAM_FRAMESIZE FRAMESIZE_UXGA
 // ------------------------
 
 static httpd_handle_t server = nullptr;
@@ -49,7 +53,7 @@ static bool init_camera() {
   c.pin_reset = -1;
   c.xclk_freq_hz = 20000000;
   c.pixel_format = PIXFORMAT_JPEG;
-  c.frame_size = FRAMESIZE_SVGA;   // 800x600: enough for counting, light on Wi-Fi
+  c.frame_size = STREAM_FRAMESIZE;
   c.jpeg_quality = 12;             // lower = better quality, bigger frames
   c.fb_count = psramFound() ? 2 : 1;
   c.grab_mode = CAMERA_GRAB_LATEST;

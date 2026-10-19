@@ -8,7 +8,9 @@ data_dir: "./data"            # events.sqlite, clips/, exports/, site/
 
 model:
   weights: "yolov8n.pt"       # auto-downloaded by ultralytics on first run
-  imgsz: 960                  # raise to 1280 if riders are small in frame
+  imgsz: 640                  # detector input size; the crop below is what gets resized to this
+  crop: "auto"                # "auto" = box around the gate/zone + crop_margin; or [x, y, w, h]; or null for full frame
+  crop_margin: 160            # px around the gate/zone. From a high window, riders are small: keep the crop tight.
   conf: 0.35
   classes: [3]                # COCO: 3 = motorcycle. Add 1 for bicycles if wanted.
   tracker: "bytetrack.yaml"
