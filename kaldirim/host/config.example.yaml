@@ -38,11 +38,15 @@ clip:
 
 # Nightly post. Dry run until you set it to false.
 post:
+  mode: "telegram"            # "telegram" (free: you post from the phone), "x" (paid API), "file"
+  telegram:
+    bot_token: ""             # from @BotFather
+    chat_id: ""               # your own chat with the bot; see deliver.py
   campaign_start: ""          # YYYY-MM-DD of the first public post; dashboard compares before/after
   dry_run: true
   hour: 22                    # local hour to post the day's numbers
   site_url: ""                # leave empty: X bills posts with links far higher. Put the link in the bio.
-  x_api:                      # developer.x.com: app with read+write, OAuth 1.0a user keys, billing enabled
+  x_api:                      # only for mode "x": developer.x.com app, read+write, OAuth 1.0a user keys, billing enabled
     consumer_key: ""
     consumer_secret: ""
     access_token: ""

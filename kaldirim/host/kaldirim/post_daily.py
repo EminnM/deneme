@@ -1,4 +1,9 @@
-"""Compose and post the day's numbers with the hourly chart. Dry run by default.
+"""Compose the day's numbers with the hourly chart and deliver them. Dry run by default.
+
+post.mode decides where it goes:
+  "telegram"  (free, default)  text + chart to your Telegram; you post from the phone in one tap
+  "x"         (paid API)        posts directly through the X API
+  "file"                        writes data/site/post_<day>.txt next to the chart, nothing sent
 
     python -m kaldirim.post_daily                # today
     python -m kaldirim.post_daily 2026-10-18     # a specific day
@@ -48,9 +53,24 @@ def main() -> None:
 
     print(text)
     print(f"chart: {png}")
+    txt = png.with_name(f"post_{day.isoformat()}.txt")
+    txt.write_text(text + "\n", encoding="utf-8")
     if p.get("dry_run", True):
-        print("dry_run is true; nothing posted")
+        print("dry_run is true; nothing sent")
         return
+
+    mode = p.get("mode", "telegram")
+    if mode == "file":
+        print(f"written: {txt}")
+        return
+    if mode == "telegram":
+        from .deliver import send_telegram
+        t = p["telegram"]
+        send_telegram(t["bot_token"], str(t["chat_id"]), text, png)
+        print("sent to telegram")
+        return
+    if mode != "x":
+        raise SystemExit(f"unknown post.mode: {mode}")
 
     import tweepy
     k = p["x_api"]

@@ -57,3 +57,13 @@ def test_before_after(tmp_path):
     assert (nb, ns) == (1, 1) and avg_b == 1 and avg_s == 50
     avg_b, avg_s, nb, ns = stats.before_after(con, date(2026, 10, 17), date(2026, 10, 18))
     assert avg_b is None and nb == 0 and avg_s == 25.5 and ns == 2
+
+
+def test_intent_url_and_multipart(tmp_path):
+    from kaldirim.deliver import _multipart, intent_url
+    u = intent_url("bugün: 50\nhttps://e.org")
+    assert u.startswith("https://x.com/intent/post?text=") and "50" in u and "%0A" in u
+    f = tmp_path / "c.png"; f.write_bytes(b"\x89PNG....")
+    body, ctype = _multipart({"chat_id": "1", "caption": "x"}, "photo", f)
+    assert ctype.startswith("multipart/form-data; boundary=") and b'name="photo"; filename="c.png"' in body
+    assert body.endswith(b"--\r\n") and b"\x89PNG" in body
