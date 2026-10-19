@@ -41,8 +41,8 @@ post:
   campaign_start: ""          # YYYY-MM-DD of the first public post; dashboard compares before/after
   dry_run: true
   hour: 22                    # local hour to post the day's numbers
-  site_url: ""                # dashboard link appended to the post, if any
-  x_api:                      # from developer.x.com, app with read+write
+  site_url: ""                # leave empty: X bills posts with links far higher. Put the link in the bio.
+  x_api:                      # developer.x.com: app with read+write, OAuth 1.0a user keys, billing enabled
     consumer_key: ""
     consumer_secret: ""
     access_token: ""

@@ -74,8 +74,11 @@ Cron, nightly at 22:05:
 5 22 * * *  cd /path/to/host && .venv/bin/python -m kaldirim.dashboard && .venv/bin/python -m kaldirim.post_daily
 ```
 
-X API keys come from developer.x.com (app with read and write). Mark the account as automated in
-its settings.
+X API keys come from developer.x.com: create an app with read and write permissions, generate the
+OAuth 1.0a user access token and secret for the posting account, and add a payment method. Since
+February 2026 the API is pay-per-use with no free tier; one post a night with an image is on the
+order of a cent. Posts that contain a link are billed far higher, so keep `site_url` empty and put
+the dashboard link in the bio. Mark the account as automated in its settings.
 
 ## 4. Sharing an image
 

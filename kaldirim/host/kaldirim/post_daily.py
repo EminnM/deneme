@@ -4,6 +4,10 @@
     python -m kaldirim.post_daily 2026-10-18     # a specific day
 
 Schedule it nightly with cron, e.g.  5 22 * * *  cd /path/host && python -m kaldirim.post_daily
+
+X API access is pay-per-use since February 2026: a developer account with a payment method,
+then roughly a cent per post. Posts containing a link are billed much higher, so leave
+post.site_url empty and put the dashboard link in the account bio instead.
 """
 from __future__ import annotations
 
@@ -50,12 +54,33 @@ def main() -> None:
 
     import tweepy
     k = p["x_api"]
-    auth = tweepy.OAuth1UserHandler(k["consumer_key"], k["consumer_secret"], k["access_token"], k["access_token_secret"])
-    media = tweepy.API(auth).media_upload(str(png))
+    media_id = upload_media(k, png)
     client = tweepy.Client(consumer_key=k["consumer_key"], consumer_secret=k["consumer_secret"],
                            access_token=k["access_token"], access_token_secret=k["access_token_secret"])
-    r = client.create_tweet(text=text, media_ids=[media.media_id])
+    r = client.create_tweet(text=text, media_ids=[media_id])
     print("posted:", r.data.get("id"))
+
+
+def upload_media(k: dict, png: Path) -> str:
+    """Upload one image and return its media id.
+
+    Tries the v2 endpoint first (POST /2/media/upload), which is what X runs now, and falls back
+    to the v1.1 upload through tweepy if v2 is refused, since tweepy has no v2 upload helper yet.
+    """
+    from requests_oauthlib import OAuth1
+    import requests
+    auth = OAuth1(k["consumer_key"], k["consumer_secret"], k["access_token"], k["access_token_secret"])
+    with png.open("rb") as f:
+        r = requests.post("https://api.x.com/2/media/upload", auth=auth,
+                          data={"media_category": "tweet_image", "media_type": "image/png"},
+                          files={"media": (png.name, f, "image/png")}, timeout=60)
+    if r.ok:
+        return str(r.json()["data"]["id"])
+    print(f"v2 media upload refused ({r.status_code}); trying v1.1")
+    import tweepy
+    api = tweepy.API(tweepy.OAuth1UserHandler(k["consumer_key"], k["consumer_secret"],
+                                              k["access_token"], k["access_token_secret"]))
+    return str(api.media_upload(str(png)).media_id)
 
 
 if __name__ == "__main__":
