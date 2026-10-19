@@ -7,7 +7,7 @@ What is removed: the whole background (buildings, signage, road, curb, perspecti
 and detail below plate and face resolution (the cutout is downscaled hard, then upscaled).
 What remains: the silhouette of a motorcycle with a rider on it, and nothing that says where.
 
-Needs the segmentation weights (yolov8n-seg.pt, auto-downloaded). Falls back to a heavily
+Needs the segmentation weights (yolo26n-seg.pt, auto-downloaded). Falls back to a heavily
 pixelated box crop if no mask is found.
 """
 from __future__ import annotations
@@ -126,7 +126,7 @@ def main() -> None:
     cfg = config.load()
     con = db.connect(cfg["data_dir"])
     from ultralytics import YOLO
-    model = YOLO(cfg.get("model", {}).get("seg_weights", "yolov8n-seg.pt"))
+    model = YOLO(cfg.get("model", {}).get("seg_weights", "yolo26n-seg.pt"))
     for a in sys.argv[1:]:
         export(con, cfg, int(a), model)
 

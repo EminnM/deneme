@@ -7,14 +7,18 @@ timezone: "Europe/Istanbul"
 data_dir: "./data"            # events.sqlite, clips/, exports/, site/
 
 model:
-  weights: "yolov8n.pt"       # auto-downloaded by ultralytics on first run
+  weights: "yolo26n.pt"       # COCO-pretrained, auto-downloaded by ultralytics on first run
+  # Alternative for a high window: a VisDrone-trained model, e.g. dronefreak/visdrone-yolo26m on
+  # Hugging Face. VisDrone is drone-viewpoint data; its class list is
+  # [pedestrian, people, bicycle, car, van, truck, tricycle, awning-tricycle, bus, motor]
+  # so set weights to the downloaded best.pt and classes to [9].
   imgsz: 640                  # detector input size; the crop below is what gets resized to this
   crop: "auto"                # "auto" = box around the gate/zone + crop_margin; or [x, y, w, h]; or null for full frame
   crop_margin: 160            # px around the gate/zone. From a high window, riders are small: keep the crop tight.
   conf: 0.35
-  classes: [3]                # COCO: 3 = motorcycle. Add 1 for bicycles if wanted.
+  classes: [3]                # COCO: 3 = motorcycle (VisDrone: 9 = motor). Add COCO 1 for bicycles if wanted.
   tracker: "bytetrack.yaml"
-  seg_weights: "yolov8n-seg.pt"  # used by export_image.py only
+  seg_weights: "yolo26n-seg.pt"  # used by export_image.py only
 
 # Counting rule. Use "gate" when the sidewalk view is partial or oblique:
 # a rider is counted once when their ground point crosses the line.

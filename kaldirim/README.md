@@ -46,6 +46,13 @@ a tight box around the gate at native resolution rather than on a downscaled who
 first day's clips to confirm riders are being picked up; if not, lower `conf` to 0.25 before
 anything else.
 
+**Model choice.** Default is the COCO-pretrained `yolo26n.pt` (class 3, motorcycle). COCO is mostly
+street-level photos, so a steep downward view at 40 m is outside what it saw in training. If the
+first day's clips show misses, switch to a VisDrone-trained checkpoint, which is drone-viewpoint
+data with a `motor` class (index 9): for example `dronefreak/visdrone-yolo26m` on Hugging Face,
+download `best.pt`, set `model.weights` to it and `model.classes` to `[9]`. VisDrone weights are
+licensed for academic and non-commercial use, which this is.
+
 **After dark.** The OV2640 is weak in low light. Under street lighting it still sees headlights and
 shapes, but expect an undercount in the evening. The before-and-after comparison is still fair as
 long as both periods have the same hours of darkness, so compare within the same season.
