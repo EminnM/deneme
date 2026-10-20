@@ -55,11 +55,18 @@ class CountRule:
     zone mode: count after `min_frames` consecutive ground points inside the polygon.
     """
 
-    def __init__(self, mode: str, gate=None, zone=None, min_frames: int = 3, cooldown_s: float = 2.0):
+    def __init__(self, mode: str, gate=None, zone=None, min_frames: int = 3, cooldown_s: float = 2.0,
+                 gates: list[dict] | None = None):
         if mode not in ("gate", "zone"):
             raise ValueError("mode must be 'gate' or 'zone'")
         self.mode = mode
-        self.gate = [tuple(p) for p in (gate or [])]
+        # several named gates, or the single legacy `gate`
+        if gates:
+            self.gates = [(g.get("name", f"gate{i + 1}"), [tuple(p) for p in g["points"]]) for i, g in enumerate(gates)]
+        elif gate:
+            self.gates = [("gate", [tuple(p) for p in gate])]
+        else:
+            self.gates = []
         self.zone = [tuple(p) for p in (zone or [])]
         self.min_frames = min_frames
         self.cooldown_s = cooldown_s
@@ -67,23 +74,26 @@ class CountRule:
         self._streak: dict[int, int] = {}
         self._counted_at: dict[int, float] = {}
 
-    def update(self, track_id: int, pt: Point, now: float) -> bool:
-        """Feed one observation. Returns True exactly when this observation triggers a count."""
+    def update(self, track_id: int, pt: Point, now: float) -> str | None:
+        """Feed one observation. Returns the gate name (or "zone") exactly when it triggers a count."""
         last_count = self._counted_at.get(track_id)
         if last_count is not None and now - last_count < self.cooldown_s:
             self._last_pt[track_id] = pt
-            return False
+            return None
 
-        hit = False
+        hit = None
         if self.mode == "gate":
             prev = self._last_pt.get(track_id)
-            if prev is not None and segments_cross(prev, pt, self.gate[0], self.gate[1]):
-                hit = True
+            if prev is not None:
+                for name, (g1, g2) in self.gates:
+                    if segments_cross(prev, pt, g1, g2):
+                        hit = name
+                        break
         else:
             if point_in_polygon(pt, self.zone):
                 self._streak[track_id] = self._streak.get(track_id, 0) + 1
                 if self._streak[track_id] == self.min_frames:
-                    hit = True
+                    hit = "zone"
             else:
                 self._streak[track_id] = 0
 
@@ -91,6 +101,10 @@ class CountRule:
         if hit:
             self._counted_at[track_id] = now
         return hit
+
+    def all_points(self) -> list[Point]:
+        pts = [p for _, g in self.gates for p in g]
+        return pts + self.zone
 
     def forget_stale(self, now: float, max_age_s: float = 60.0) -> None:
         """Drop state for tracks not seen in a while so memory stays flat."""

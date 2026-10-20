@@ -36,6 +36,12 @@ python -m kaldirim.roi_tool             # click 2 points for a gate line, Enter,
 python -m kaldirim.counter              # runs forever; logs each count
 ```
 
+**Several gates.** `count.gates` takes a list of named lines, for example one across the far
+pavement in front of the shops and one across the pavement under the window. Each count records
+which gate it crossed, and the dashboard shows the split when there is more than one. Keep gates
+away from courier parking spots and off the zebra crossing, so every count is a rider moving along
+the pavement and nothing else.
+
 **Gate vs zone.** With a partial or oblique view, draw a short *gate* line across the pavement
 where riders must pass; a track is counted once when it crosses it. This works at the 2 to 4 fps a
 Raspberry Pi gives. With a clean wide view you can use a *zone* polygon instead.

@@ -25,7 +25,11 @@ model:
 # Use "zone" when you have a clean wide view of the pavement.
 count:
   mode: "gate"                # "gate" or "zone"
-  gate: [[120, 400], [520, 380]]     # two image points, set with roi_tool.py
+  gates:                      # one or more named lines, each two image points from roi_tool.py
+    - name: "karşı kaldırım"  # far pavement in front of the shops
+      points: [[640, 690], [640, 850]]
+    - name: "alt kaldırım"    # near pavement below the window
+      points: [[830, 1290], [830, 1500]]
   zone: [[100, 380], [700, 360], [720, 440], [80, 460]]   # polygon, roi_tool.py
   zone_min_frames: 3          # consecutive in-zone frames before counting (zone mode)
   cooldown_s: 2.0             # ignore the same track id for this long after a count

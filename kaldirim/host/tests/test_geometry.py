@@ -21,15 +21,15 @@ def test_gate_counts_once_per_crossing():
     r = CountRule("gate", gate=[(0, 10), (100, 10)], cooldown_s=2.0)
     pts = [(50, 0), (50, 5), (50, 12), (50, 20), (50, 30)]
     hits = [r.update(7, p, t) for t, p in enumerate(pts)]
-    assert hits == [False, False, True, False, False]
+    assert hits == [None, None, "gate", None, None]
 
 
 def test_gate_recounts_after_cooldown_for_new_crossing():
     r = CountRule("gate", gate=[(0, 10), (100, 10)], cooldown_s=1.0)
-    assert r.update(1, (50, 0), 0.0) is False
-    assert r.update(1, (50, 20), 0.5) is True
-    assert r.update(1, (50, 0), 0.9) is False     # inside cooldown, ignored
-    assert r.update(1, (50, 20), 5.0) is True     # a genuine second crossing later
+    assert r.update(1, (50, 0), 0.0) is None
+    assert r.update(1, (50, 20), 0.5) == "gate"
+    assert r.update(1, (50, 0), 0.9) is None      # inside cooldown, ignored
+    assert r.update(1, (50, 20), 5.0) == "gate"   # a genuine second crossing later
 
 
 def test_zone_needs_consecutive_frames():
@@ -37,17 +37,25 @@ def test_zone_needs_consecutive_frames():
     r = CountRule("zone", zone=z, min_frames=3)
     seq = [(5, 5), (5, 5), (20, 20), (5, 5), (5, 5), (5, 5), (5, 5)]
     hits = [r.update(3, p, t) for t, p in enumerate(seq)]
-    assert hits == [False, False, False, False, False, True, False]
+    assert hits == [None, None, None, None, None, "zone", None]
 
 
 def test_low_fps_crossing_still_detected():
     # at 2 fps a rider jumps 30 px between frames; the segment still crosses the gate
     r = CountRule("gate", gate=[(0, 100), (640, 90)])
-    assert r.update(9, (300, 70), 0.0) is False
-    assert r.update(9, (320, 130), 0.5) is True
+    assert r.update(9, (300, 70), 0.0) is None
+    assert r.update(9, (320, 130), 0.5) == "gate"
 
 
 def test_auto_crop_clamps_to_frame():
     from kaldirim.geometry import auto_crop
     assert auto_crop([(100, 400), (500, 380)], 1600, 1200, 160) == (0, 220, 660, 340)
     assert auto_crop([(1500, 1100), (1590, 1190)], 1600, 1200, 160) == (1340, 940, 260, 260)
+
+
+def test_named_gates_report_which_one():
+    r = CountRule("gate", gates=[{"name": "far", "points": [(0, 100), (200, 100)]},
+                                 {"name": "near", "points": [(0, 500), (200, 500)]}])
+    assert r.update(1, (50, 90), 0.0) is None and r.update(1, (50, 110), 0.5) == "far"
+    assert r.update(2, (50, 490), 0.0) is None and r.update(2, (50, 510), 0.5) == "near"
+    assert sorted(r.all_points()) == [(0, 100), (0, 500), (200, 100), (200, 500)]

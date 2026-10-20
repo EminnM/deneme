@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS events (
     track_id INTEGER,
     conf REAL,
     x INTEGER, y INTEGER,      -- ground point in the frame at count time
-    clip_path TEXT
+    clip_path TEXT,
+    gate TEXT
 );
 CREATE INDEX IF NOT EXISTS events_day ON events(day);
 """
@@ -21,13 +22,17 @@ CREATE INDEX IF NOT EXISTS events_day ON events(day);
 def connect(data_dir: str) -> sqlite3.Connection:
     con = sqlite3.connect(Path(data_dir, "events.sqlite"))
     con.executescript(SCHEMA)
+    cols = {r[1] for r in con.execute("PRAGMA table_info(events)")}
+    if "gate" not in cols:   # databases created before gates were named
+        con.execute("ALTER TABLE events ADD COLUMN gate TEXT")
+        con.commit()
     return con
 
 
-def insert_event(con, ts, day, hour, track_id, conf, x, y, clip_path) -> int:
+def insert_event(con, ts, day, hour, track_id, conf, x, y, clip_path, gate=None) -> int:
     cur = con.execute(
-        "INSERT INTO events (ts, day, hour, track_id, conf, x, y, clip_path) VALUES (?,?,?,?,?,?,?,?)",
-        (ts, day, hour, track_id, conf, x, y, clip_path),
+        "INSERT INTO events (ts, day, hour, track_id, conf, x, y, clip_path, gate) VALUES (?,?,?,?,?,?,?,?,?)",
+        (ts, day, hour, track_id, conf, x, y, clip_path, gate),
     )
     con.commit()
     return cur.lastrowid

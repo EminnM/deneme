@@ -75,6 +75,12 @@ def build(cfg: dict) -> Path:
     first = stats.first_day(con) or today.isoformat()
     first_tr = datetime.strptime(first, "%Y-%m-%d").strftime("%d.%m.%Y")
 
+    gates = stats.gate_counts(con, today)
+    gate_html = ""
+    if len(gates) > 1:
+        tiles = "".join(f'<div class="tile"><div class="v">{n}</div><div class="l">{html.escape(g)}</div></div>' for g, n in gates)
+        gate_html = f"<h2>Bugün, noktaya göre</h2><div class=\"tiles\">{tiles}</div>"
+
     cmp_html = ""
     cs = (cfg.get("post") or {}).get("campaign_start") or ""
     if cs:
@@ -107,6 +113,7 @@ def build(cfg: dict) -> Path:
 <h2>Bugün, saat dilimine göre</h2>
 {bar_svg([f"{h:02d}" for h in range(24)], today_st.hourly, "geçiş", step_labels=3)}
 <details><summary>Tablo</summary><table><tr><th>Saat</th><th>Geçiş</th></tr>{hourly_rows or "<tr><td colspan=2>henüz yok</td></tr>"}</table></details>
+{gate_html}
 {cmp_html}
 <h2>Son 30 gün</h2>
 {bar_svg([d[5:] for d, _ in last30], [v for _, v in last30], "geçiş", step_labels=5)}

@@ -33,6 +33,12 @@ def daily_totals(con: sqlite3.Connection, end: date, days: int) -> list[tuple[st
             for i in range(days)]
 
 
+def gate_counts(con: sqlite3.Connection, day: date) -> list[tuple[str, int]]:
+    """(gate name, count) for one day, largest first. Unnamed events show as 'gate'."""
+    return [(g or "gate", int(n)) for g, n in con.execute(
+        "SELECT gate, COUNT(*) FROM events WHERE day=? GROUP BY gate ORDER BY COUNT(*) DESC", (day.isoformat(),))]
+
+
 def running_total(con: sqlite3.Connection) -> int:
     return int(con.execute("SELECT COUNT(*) FROM events").fetchone()[0])
 

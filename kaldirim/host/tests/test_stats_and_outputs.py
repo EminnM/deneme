@@ -11,7 +11,8 @@ def seeded(tmp_path: Path):
     con = db.connect(str(tmp_path))
     for h, n in ((8, 3), (12, 10), (19, 25), (20, 12)):
         for i in range(n):
-            db.insert_event(con, f"2026-10-18T{h:02d}:{i:02d}:00+03:00", "2026-10-18", h, i, 0.8, 100, 200, None)
+            db.insert_event(con, f"2026-10-18T{h:02d}:{i:02d}:00+03:00", "2026-10-18", h, i, 0.8, 100, 200, None,
+                            "far" if h < 15 else "near")
     db.insert_event(con, "2026-10-17T09:00:00+03:00", "2026-10-17", 9, 1, 0.9, 1, 1, None)
     return con
 
@@ -67,3 +68,9 @@ def test_intent_url_and_multipart(tmp_path):
     body, ctype = _multipart({"chat_id": "1", "caption": "x"}, "photo", f)
     assert ctype.startswith("multipart/form-data; boundary=") and b'name="photo"; filename="c.png"' in body
     assert body.endswith(b"--\r\n") and b"\x89PNG" in body
+
+
+def test_gate_counts(tmp_path):
+    con = seeded(tmp_path)
+    assert stats.gate_counts(con, date(2026, 10, 18)) == [("near", 37), ("far", 13)]
+    assert stats.gate_counts(con, date(2026, 10, 17)) == [("gate", 1)]

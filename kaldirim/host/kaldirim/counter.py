@@ -88,7 +88,7 @@ def main() -> None:
     model = YOLO(m["weights"])
 
     c = cfg["count"]
-    rule = CountRule(c["mode"], gate=c.get("gate"), zone=c.get("zone"),
+    rule = CountRule(c["mode"], gate=c.get("gate"), gates=c.get("gates"), zone=c.get("zone"),
                      min_frames=c.get("zone_min_frames", 3), cooldown_s=c.get("cooldown_s", 2.0))
     cl = cfg["clip"]
     clips = ClipWriter(Path(cfg["data_dir"], "clips"), cl["pre_s"], cl["post_s"], cl["width"])
@@ -113,8 +113,7 @@ def main() -> None:
         if crop is None and crop_cfg:
             fh, fw = frame.shape[:2]
             if crop_cfg == "auto":
-                pts = c["gate"] if c["mode"] == "gate" else c["zone"]
-                crop = auto_crop([tuple(p) for p in pts], fw, fh, int(m.get("crop_margin", 160)))
+                crop = auto_crop(rule.all_points(), fw, fh, int(m.get("crop_margin", 160)))
             else:
                 crop = tuple(int(v) for v in crop_cfg)
             log.info("detector crop x=%d y=%d w=%d h=%d of %dx%d", *crop, fw, fh)
@@ -134,14 +133,15 @@ def main() -> None:
             for box, tid, conf in zip(res.boxes.xyxy.tolist(), ids, confs):
                 box = (box[0] + cx, box[1] + cy, box[2] + cx, box[3] + cy)   # back to frame coords
                 pt = ground_point(box)
-                if rule.update(tid, pt, now):
+                gate_name = rule.update(tid, pt, now)
+                if gate_name:
                     when = datetime.now(tz)
                     eid = db.insert_event(con, when.isoformat(timespec="seconds"), when.strftime("%Y-%m-%d"),
-                                          when.hour, tid, float(conf), int(pt[0]), int(pt[1]), None)
+                                          when.hour, tid, float(conf), int(pt[0]), int(pt[1]), None, gate_name)
                     path = clips.start(now, eid, when)
                     con.execute("UPDATE events SET clip_path=? WHERE id=?", (path, eid))
                     con.commit()
-                    log.info("count #%d track=%d conf=%.2f clip=%s", eid, tid, conf, Path(path).name)
+                    log.info("count #%d %s track=%d conf=%.2f clip=%s", eid, gate_name, tid, conf, Path(path).name)
         rule.forget_stale(now)
 
         if now - last_log > 60:

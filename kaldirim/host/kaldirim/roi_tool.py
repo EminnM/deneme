@@ -67,7 +67,9 @@ def main() -> None:
             out = Path(cfg["data_dir"], "roi.png")
             cv2.imwrite(str(out), img)
             if len(pts) == 2:
-                print(yaml.safe_dump({"count": {"mode": "gate", "gate": [list(p) for p in pts]}}))
+                print(yaml.safe_dump({"count": {"mode": "gate", "gates": [{"name": "gate1", "points": [list(p) for p in pts]}]}},
+                                     allow_unicode=True))
+                print("add more gates to the list with their own names; run the tool again for each")
             elif len(pts) >= 3:
                 print(yaml.safe_dump({"count": {"mode": "zone", "zone": [list(p) for p in pts]}}))
             else:
