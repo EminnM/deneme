@@ -30,6 +30,8 @@ count:
       points: [[640, 690], [640, 850]]
     - name: "alt kaldırım"    # near pavement below the window
       points: [[830, 1290], [830, 1500]]
+    - name: "yaya geçidi"     # across the zebra crossing: a bike crossing the road with pedestrians
+      points: [[500, 1200], [650, 1200]]   # cuts it; cars driving along the road never cross a line parallel to traffic
   zone: [[100, 380], [700, 360], [720, 440], [80, 460]]   # polygon, roi_tool.py
   zone_min_frames: 3          # consecutive in-zone frames before counting (zone mode)
   cooldown_s: 2.0             # ignore the same track id for this long after a count

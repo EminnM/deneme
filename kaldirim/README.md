@@ -42,6 +42,11 @@ which gate it crossed, and the dashboard shows the split when there is more than
 away from courier parking spots and off the zebra crossing, so every count is a rider moving along
 the pavement and nothing else.
 
+**Counting the zebra crossing.** Riders also use the pedestrian crossing to get across a divided
+avenue. A short gate laid *across* the crossing, parallel to the traffic, counts a motorcycle
+riding along the crossing with the pedestrians and ignores cars, which move parallel to that line
+and never cross it. Name it so the dashboard reports it separately from pavement riding.
+
 **Gate vs zone.** With a partial or oblique view, draw a short *gate* line across the pavement
 where riders must pass; a track is counted once when it crosses it. This works at the 2 to 4 fps a
 Raspberry Pi gives. With a clean wide view you can use a *zone* polygon instead.
