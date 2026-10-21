@@ -1,0 +1,59 @@
+# Copy to config.yaml and edit. Never commit config.yaml (it is gitignored).
+
+stream_url: "http://192.168.1.50/stream"   # Deneyap Kart /stream endpoint
+timezone: "Europe/Istanbul"
+
+# Where things are written. Clips stay local; nothing here is published.
+data_dir: "./data"            # events.sqlite, clips/, exports/, site/
+
+model:
+  weights: "yolo26n.pt"       # COCO-pretrained, auto-downloaded by ultralytics on first run
+  # Alternative for a high window: a VisDrone-trained model, e.g. dronefreak/visdrone-yolo26m on
+  # Hugging Face. VisDrone is drone-viewpoint data; its class list is
+  # [pedestrian, people, bicycle, car, van, truck, tricycle, awning-tricycle, bus, motor]
+  # so set weights to the downloaded best.pt and classes to [9].
+  imgsz: 640                  # detector input size; the crop below is what gets resized to this
+  crop: "auto"                # "auto" = box around the gate/zone + crop_margin; or [x, y, w, h]; or null for full frame
+  crop_margin: 160            # px around the gate/zone. From a high window, riders are small: keep the crop tight.
+  conf: 0.35
+  classes: [3]                # COCO: 3 = motorcycle (VisDrone: 9 = motor). Add COCO 1 for bicycles if wanted.
+  tracker: "bytetrack.yaml"
+  seg_weights: "yolo26n-seg.pt"  # used by export_image.py only
+
+# Counting rule. Use "gate" when the sidewalk view is partial or oblique:
+# a rider is counted once when their ground point crosses the line.
+# Use "zone" when you have a clean wide view of the pavement.
+count:
+  mode: "gate"                # "gate" or "zone"
+  gates:                      # one or more named lines, each two image points from roi_tool.py
+    - name: "karşı kaldırım"  # far pavement in front of the shops
+      points: [[640, 690], [640, 850]]
+    - name: "alt kaldırım"    # near pavement below the window
+      points: [[830, 1290], [830, 1500]]
+    - name: "yaya geçidi"     # across the zebra crossing: a bike crossing the road with pedestrians
+      points: [[500, 1200], [650, 1200]]   # cuts it; cars driving along the road never cross a line parallel to traffic
+  zone: [[100, 380], [700, 360], [720, 440], [80, 460]]   # polygon, roi_tool.py
+  zone_min_frames: 3          # consecutive in-zone frames before counting (zone mode)
+  cooldown_s: 2.0             # ignore the same track id for this long after a count
+
+# Short clip saved per counted event, for your own records and police reports.
+clip:
+  pre_s: 2.0
+  post_s: 2.0
+  width: 0                    # 0 = keep full stream resolution so plates stay readable for police reports
+
+# Nightly post. Dry run until you set it to false.
+post:
+  mode: "telegram"            # "telegram" (free: you post from the phone), "x" (paid API), "file"
+  telegram:
+    bot_token: ""             # from @BotFather
+    chat_id: ""               # your own chat with the bot; see deliver.py
+  campaign_start: ""          # YYYY-MM-DD of the first public post; dashboard compares before/after
+  dry_run: true
+  hour: 22                    # local hour to post the day's numbers
+  site_url: ""                # leave empty: X bills posts with links far higher. Put the link in the bio.
+  x_api:                      # only for mode "x": developer.x.com app, read+write, OAuth 1.0a user keys, billing enabled
+    consumer_key: ""
+    consumer_secret: ""
+    access_token: ""
+    access_token_secret: ""
