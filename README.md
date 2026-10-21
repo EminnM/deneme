@@ -60,3 +60,19 @@ and position per element, a coverage grid, and a tick box per item per slide so 
 No fix is applied or shown, so a reviewer forms their own view first. Each item also states what it does *not*
 confirm (wording, facts, chart data, images, taste). Browser test (27 checks):
 `DASH_DIR=<dir> PLAYWRIGHT_PATH=<path> node tests/e2e/verify.e2e.js`.
+
+## Running on Windows / your own machine
+
+```
+git clone -b claude/new-session-3xlp3i https://github.com/EminnM/deneme.git deckqa
+cd deckqa
+py -m pip install python-pptx pillow
+py -m unittest discover -s tests            # optional self-test
+py -m deckqa "C:\path\to\deck.pptx" --verify board.html --report report.md --notes notes.txt
+```
+
+Everything runs locally; nothing is uploaded. Slide pictures need LibreOffice and poppler (`soffice`, `pdftoppm`)
+on the PATH; without them the boards still work and show element outlines instead of pictures. Text is measured with
+the deck's own fonts when they are installed (Calibri, Arial, ... on Windows), with metric-compatible stand-ins
+otherwise; fonts that had to be approximated are listed in the report. Never run `--fix` on the original: it writes
+a separate file only if you pass `--fix OUT.pptx`, and the original is not touched.

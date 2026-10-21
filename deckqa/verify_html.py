@@ -43,6 +43,7 @@ table.inv{border-collapse:collapse;width:100%;font-size:12.5px;margin-bottom:10p
 .sw{display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid var(--line);vertical-align:-2px;margin-right:6px}
 .rare{color:var(--bad);font-size:11px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px}
 @media (max-width:700px){.grid2{grid-template-columns:1fr}}
+.blank{background:#fff;border:1px solid var(--line);border-radius:8px;width:100%;position:relative}.vb.el{border:1px solid #b9bfce;border-radius:1px}
 .viewer{position:relative;line-height:0}.viewer img{width:100%;border:1px solid var(--line);border-radius:8px;background:#fff}
 .vb{position:absolute;border:2px solid var(--ok);background:none;border-radius:3px;pointer-events:none}
 .vb.flag{border-color:var(--bad);background:rgba(200,55,45,.10)}
@@ -108,7 +109,7 @@ function stats(){
 }
 function rail(){
   $('rail').innerHTML=D.slides.map(s=>{const f=s.items.filter(i=>i.status==='flag').length;
-    return `<button class="th ${s.no===S.slide?'sel':''}" data-n="${s.no}"><img src="${s.img||''}" alt=""><small><span>${s.no}</span><span class="pc">${checkedCount(s.no)}/8 ${f?'<b style="color:var(--bad)">! '+f+'</b>':''}</span></small></button>`}).join('');
+    return `<button class="th ${s.no===S.slide?'sel':''}" data-n="${s.no}">${s.img?`<img src="${s.img}" alt="">`:'<div class="blank" style="aspect-ratio:16/9"></div>'}<small><span>${s.no}</span><span class="pc">${checkedCount(s.no)}/8 ${f?'<b style="color:var(--bad)">! '+f+'</b>':''}</span></small></button>`}).join('');
   $('rail').querySelectorAll('.th').forEach(b=>b.onclick=()=>go(+b.dataset.n));
 }
 function matrix(){
@@ -143,7 +144,7 @@ function view(){
   const bx=S.boxes===false?[]:boxesFor(s).map(([k,b])=>{const [l,t,r,bt]=b.b;const a=(r-l)*(bt-t);
     return `<div class="vb ${k==='flag'?'flag':''}" style="z-index:${100+Math.round(1000-a/(D.w*D.h)*1000)};left:${l/D.w*100}%;top:${t/D.h*100}%;width:${(r-l)/D.w*100}%;height:${(bt-t)/D.h*100}%">${b.t?'<span class="vl">'+esc(b.t)+'</span>':''}</div>`}).join('');
   const pk=(PICK!=null&&s.elements[PICK])?(()=>{const [l,t,r,bt]=s.elements[PICK].b;return `<div class="vb pick" style="z-index:900;left:${l/D.w*100}%;top:${t/D.h*100}%;width:${(r-l)/D.w*100}%;height:${(bt-t)/D.h*100}%"></div>`})():'';
-  $('view').innerHTML=`<div class="viewer"><img src="${s.img||''}" alt="Slide ${s.no}">${bx}${pk}</div>`;
+  $('view').innerHTML=`<div class="viewer">${s.img?`<img src="${s.img}" alt="Slide ${s.no}">`:`<div class="blank" style="aspect-ratio:${D.w}/${D.h}">${s.elements.map(e=>{const [l,t,r,bt]=e.b;return `<div class="vb el" style="left:${l/D.w*100}%;top:${t/D.h*100}%;width:${(r-l)/D.w*100}%;height:${(bt-t)/D.h*100}%"></div>`}).join('')}</div>`}${bx}${pk}</div>`;
   $('ecount').textContent='('+s.elements.length+' elements)';
   $('elt').innerHTML='<tr><th>Element</th><th>Type</th><th>Font</th><th>Size</th><th>Text colour</th><th>Fill</th><th>x, y</th><th>w x h</th></tr>'+s.elements.map((e,i)=>`<tr data-i="${i}" style="cursor:pointer;${PICK===i?'background:rgba(47,111,237,.12)':''}"><td>${esc(e.label)}</td><td>${esc(e.kind)}</td><td>${esc(e.font)}</td><td>${esc(e.size)}</td><td>${e.colour!=='-'?'<span class="sw" style="background:'+e.colour+'"></span>':''}${esc(e.colour)}</td><td>${e.fill!=='-'?'<span class="sw" style="background:'+e.fill+'"></span>':''}${esc(e.fill)}</td><td>${e.x}, ${e.y}</td><td>${e.w} x ${e.h}</td></tr>`).join('');
   $('elt').querySelectorAll('tr[data-i]').forEach(tr=>tr.onclick=()=>{const i=+tr.dataset.i;PICK=PICK===i?null:i;view()});

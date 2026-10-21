@@ -71,6 +71,7 @@ header h1{font-size:17px;margin:0}header .sub{opacity:.75;font-size:12px}
 .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
 .tab,.chip{border:1px solid var(--line);background:var(--chip);border-radius:99px;padding:5px 12px}
 .tab.on,.chip.on{background:var(--fix);border-color:var(--fix);color:#fff}
+.blank{background:#fff;border:1px solid var(--line);border-radius:8px;width:100%}
 .viewer{position:relative;line-height:0}
 .viewer img{width:100%;border:1px solid var(--line);border-radius:8px;background:#fff}
 .box{position:absolute;border:2px solid var(--bad);border-radius:4px;background:rgba(200,55,45,.08);cursor:pointer;transition:.15s}
@@ -140,7 +141,7 @@ function stats(){
 }
 function rail(){
   $('rail').innerHTML=D.slides.map(s=>`<button class="th ${s.no===S.slide?'sel':''}" data-n="${s.no}" aria-label="Slide ${s.no}">
-   ${S.rev[s.no]?'<span class="rv">done</span>':''}<img src="${s.before||''}" alt=""><small><span>${s.no}</span><span class="dot ${s.state}" title="${s.state}"></span></small></button>`).join('');
+   ${S.rev[s.no]?'<span class="rv">done</span>':''}${s.before?`<img src="${s.before}" alt="">`:`<div class="blank" style="aspect-ratio:${D.w}/${D.h}"></div>`}<small><span>${s.no}</span><span class="dot ${s.state}" title="${s.state}"></span></small></button>`).join('');
   $('rail').querySelectorAll('.th').forEach(b=>b.onclick=()=>go(+b.dataset.n));
 }
 function matrix(){
@@ -175,10 +176,10 @@ function view(){
   $('tb').onclick=()=>{S.showBoxes=S.showBoxes===false;save();view()};
   const sb=S.showBoxes!==false;
   s.found.forEach((i,k)=>i._k='f'+k);s.left.forEach((i,k)=>i._k='l'+k);
-  const orig=`<div class="viewer"><img src="${s.before||''}" alt="Original slide ${s.no}">${sb?boxes(s.found.map(i=>i),'').replace(/class="box "/g,'class="box"'):''}</div>`;
+  const orig=`<div class="viewer">${s.before?`<img src="${s.before}" alt="Original slide ${s.no}">`:`<div class="blank" style="aspect-ratio:${D.w}/${D.h}"></div>`}${sb?boxes(s.found.map(i=>i),'').replace(/class="box "/g,'class="box"'):''}</div>`;
   const fixedBoxes=s.found.map(i=>({...i,_k:i._k}));
-  const origHtml=`<div class="viewer"><img src="${s.before||''}" alt="Original">${sb?s.found.filter(i=>i.bbox).map(i=>{const [l,t,r,b]=i.bbox;return gapBoxes(i)+`<div class="box ${i.status==='fixed'?'fixed':''}${big(i)?' big':''}${(i.marks||[]).length?' dim':''}" data-k="${i._k}" style="z-index:${z(i)};left:${big(i)?0.4:l/D.w*100}%;top:${t/D.h*100}%;width:${big(i)?1.1:(r-l)/D.w*100}%;height:${(b-t)/D.h*100}%;${i.status==='fixed'?'':'border-color:'+COL[i.cat]}" title="${esc(i.cat+': '+i.msg)}"></div>`}).join(''):''}</div>`;
-  const aftHtml=s.after?`<div class="viewer"><img src="${s.after}" alt="After">${sb?boxes(s.left,''):''}</div>`:'';
+  const origHtml=`<div class="viewer">${s.before?`<img src="${s.before}" alt="Original">`:`<div class="blank" style="aspect-ratio:${D.w}/${D.h}"></div>`}${sb?s.found.filter(i=>i.bbox).map(i=>{const [l,t,r,b]=i.bbox;return gapBoxes(i)+`<div class="box ${i.status==='fixed'?'fixed':''}${big(i)?' big':''}${(i.marks||[]).length?' dim':''}" data-k="${i._k}" style="z-index:${z(i)};left:${big(i)?0.4:l/D.w*100}%;top:${t/D.h*100}%;width:${big(i)?1.1:(r-l)/D.w*100}%;height:${(b-t)/D.h*100}%;${i.status==='fixed'?'':'border-color:'+COL[i.cat]}" title="${esc(i.cat+': '+i.msg)}"></div>`}).join(''):''}</div>`;
+  const aftHtml=s.after?`<div class="viewer">${s.after?`<img src="${s.after}" alt="After">`:`<div class="blank" style="aspect-ratio:${D.w}/${D.h}"></div>`}${sb?boxes(s.left,''):''}</div>`:'';
   if(S.tab==='before')$('view').innerHTML=origHtml;
   else if(S.tab==='after')$('view').innerHTML=aftHtml||origHtml;
   else $('view').innerHTML=`<div class="cmp"><div><h4>Original - red = still open, blue dashed = auto-fixed</h4>${origHtml}</div><div><h4>After auto-fix - red = still needs you</h4>${aftHtml}</div></div>`;

@@ -36,6 +36,7 @@ class El:
     fill: Optional[tuple] = None
     text_color: Optional[tuple] = None   # explicit RGB of the first coloured run
     size_assumed: bool = False           # True when no run states a size, so a default was assumed
+    font_name: Optional[str] = None      # font used to measure this text (explicit, else the theme font)
     line: Optional[tuple] = None   # (x1, y1, x2, y2) absolute points for connectors
     has_pic: bool = False          # group that contains pictures
     n_leaves: int = 0              # for groups: number of leaf shapes inside
@@ -245,4 +246,11 @@ def build(prs, cfg):
         sl = Slide(i, s, out, s.slide_layout.name)
         _guess_title(sl, H)
         slides.append(sl)
-    return Deck(prs, W, H, slides, _theme_fonts(prs))
+    theme = _theme_fonts(prs)
+    major, minor = (theme + (None, None))[:2] if theme else (None, None)
+    for sl in slides:
+        for e in sl.leaves:
+            if e.kind == "text":
+                explicit = next((f for f in e.fonts if not f.startswith("+")), None)
+                e.font_name = explicit or (major if e.is_title else minor)
+    return Deck(prs, W, H, slides, theme)

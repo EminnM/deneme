@@ -140,7 +140,7 @@ def apply(deck, issues, cfg: Config):
                 m0 = measure(e, cfg, size)
                 if m0["split"]:   # a word is wider than the box: widen it (keeps the type size)
                     from .textfit import text_width
-                    word = max((text_width(w, size, e.bold) for w in e.text.split()), default=0)
+                    word = max((text_width(w, size, e.bold, e.font_name) for w in e.text.split()), default=0)
                     need = word + m0["ml"] + m0["mr"] + 2
                     if e.left + need <= deck.width:
                         set_abs(e, width=max(e.width, need))

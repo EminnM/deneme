@@ -4,6 +4,19 @@ from .config import Config
 from . import model, checks, fixer, report
 
 
+def _safe_render(*args, **kw):
+    """Slide images need LibreOffice + poppler. If they are missing, carry on without images."""
+    from .render import render
+    try:
+        return render(*args, **kw)
+    except Exception as e:
+        if not getattr(_safe_render, "warned", False):
+            _safe_render.warned = True
+            print("note: slide images were skipped (" + str(e) + "). Boards still work and show element outlines; "
+                  "install LibreOffice and poppler to get slide pictures.", file=sys.stderr)
+        return {}
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="deckqa", description="Deterministic deck QA with optional auto-fix")
     ap.add_argument("deck")
@@ -41,44 +54,47 @@ def main(argv=None):
             seen.update((i.slide, i.category, i.message) for i in fresh)
             before.extend(fresh)   # uncovered by earlier fixes; marked when fixed on the next pass
         final_path = a.fix
+    from . import textfit
     md = report.markdown(deck, before, after)
+    if textfit.FALLBACKS:
+        note = ("Note: these fonts are not installed here, so text was measured with a stand-in and text-fit/overlap "
+                "results for them are approximate: " + ", ".join(sorted(set(textfit.FALLBACKS))))
+        md = md.replace("\n\n", "\n\n" + note + "\n\n", 1)
+        print(note, file=sys.stderr)
     if a.report:
-        open(a.report, "w").write(md)
+        open(a.report, "w", encoding="utf-8").write(md)
     else:
         print(md)
     if a.verify:
         import tempfile, os
-        from .render import render
         from . import verify, verify_html
         orig = model.load(a.deck, cfg)
         data = verify.build(orig, cfg)
         with tempfile.TemporaryDirectory() as tmp:
-            imgs = render(a.deck, [], orig, os.path.join(tmp, "v"), a.dpi if a.dpi != 80 else 110, annotate=False)
-            open(a.verify, "w").write(verify_html.html(data, imgs, os.path.basename(a.deck)))
+            imgs = _safe_render(a.deck, [], orig, os.path.join(tmp, "v"), a.dpi if a.dpi != 80 else 110, annotate=False)
+            open(a.verify, "w", encoding="utf-8").write(verify_html.html(data, imgs, os.path.basename(a.deck)))
     if a.notes:
-        open(a.notes, "w").write(report.explanations_text(deck, before))
+        open(a.notes, "w", encoding="utf-8").write(report.explanations_text(deck, before))
     if a.json:
         json.dump(dict(before=[i.to_dict() for i in before],
                        after=[i.to_dict() for i in after] if after is not None else None),
-                  open(a.json, "w"), indent=2)
+                  open(a.json, "w", encoding="utf-8"), indent=2)
     if a.render:
-        from .render import render
-        render(final_path, after if after is not None else before, deck, a.render, a.dpi)
+        _safe_render(final_path, after if after is not None else before, deck, a.render, a.dpi)
     if a.html or a.dashboard:
         import tempfile, os
-        from .render import render
         from . import report as rep
         with tempfile.TemporaryDirectory() as tmp:
             orig = model.load(a.deck, cfg)
-            img_b = render(a.deck, before, orig, os.path.join(tmp, "b"), a.dpi)
-            img_a = render(final_path, after, deck, os.path.join(tmp, "a"), a.dpi) if after is not None else {}
+            img_b = _safe_render(a.deck, before, orig, os.path.join(tmp, "b"), a.dpi)
+            img_a = _safe_render(final_path, after, deck, os.path.join(tmp, "a"), a.dpi) if after is not None else {}
             if a.html:
-                open(a.html, "w").write(rep.html_report(deck, before, after, img_b, img_a))
+                open(a.html, "w", encoding="utf-8").write(rep.html_report(deck, before, after, img_b, img_a))
             if a.dashboard:
                 from . import dashboard   # the dashboard draws its own interactive markers, so use clean renders
-                cb = render(a.deck, before, orig, os.path.join(tmp, "cb"), a.dpi, annotate=False)
-                ca = render(final_path, after, deck, os.path.join(tmp, "ca"), a.dpi, annotate=False) if after is not None else {}
-                open(a.dashboard, "w").write(dashboard.html(deck, before, after, cb, ca, os.path.basename(a.deck)))
+                cb = _safe_render(a.deck, before, orig, os.path.join(tmp, "cb"), a.dpi, annotate=False)
+                ca = _safe_render(final_path, after, deck, os.path.join(tmp, "ca"), a.dpi, annotate=False) if after is not None else {}
+                open(a.dashboard, "w", encoding="utf-8").write(dashboard.html(deck, before, after, cb, ca, os.path.basename(a.deck)))
     remaining = after if after is not None else before
     return 1 if remaining else 0
 
